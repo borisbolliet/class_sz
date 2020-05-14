@@ -15,3 +15,5 @@ RealSpaceInterface/cache/
 doc/manual/html
 doc/manual/latex
 sz_auxiliary_files/*
+redshift_dependent_functions.txt
+szpowerspectrum.txt
