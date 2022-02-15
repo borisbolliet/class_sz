@@ -1,15 +1,17 @@
-# include <stdlib.h>
-# include <stdio.h>
-# include <time.h>
-# include  <math.h>
-# include  "fft.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <time.h>
+#include  <math.h>
+#include  "fft.h"
+#include  "common.h"
 // #include <complex.h>
 #include <gsl/gsl_sf_gamma.h>
-# include <fftw3.h>
+#include <gsl/gsl_math.h>
+#include <fftw3.h>
 
-#ifndef M_PI
-    #define M_PI 3.14159265358979323846
-#endif
+// #ifndef _PI_
+//     #define _PI_ 3.14159265358979323846
+// #endif
 
 
 // #include "fft.h"
@@ -697,13 +699,13 @@
 //     };
 //
 //     if(creal(z) < 0.5)
-//         return M_PI / (sin(M_PI*z)*gamma(1. - z));
+//         return _PI_ / (sin(_PI_*z)*gamma(1. - z));
 //     z -= 1;
 //     double complex x = p[0];
 //     for(int n = 1; n < 9; n++)
 //       x += p[n] / (z + (double)(n));
 //     double complex t = z + 7.5;
-//     return sqrt(2*M_PI) * cpow(t, z+0.5) * cexp(-t) * x;
+//     return sqrt(2*_PI_) * cpow(t, z+0.5) * cexp(-t) * x;
 // }
 
 static double complex lngamma(double complex z)
@@ -732,11 +734,11 @@ static void lngamma_4(double x, double y, double* lnr, double* arg) {
 static double goodkr(int N, double mu, double q, double L, double kr) {
     double xp = (mu+1+q)/2;
     double xm = (mu+1-q)/2;
-    double y = M_PI*N/(2*L);
+    double y = _PI_*N/(2*L);
     double lnr, argm, argp;
     lngamma_4(xp, y, &lnr, &argp);
     lngamma_4(xm, y, &lnr, &argm);
-    double arg = log(2/kr) * N/L + (argp + argm)/M_PI;
+    double arg = log(2/kr) * N/L + (argp + argm)/_PI_;
     double iarg = round(arg);
     if(arg != iarg)
         kr *= exp((arg - iarg)*L/N);
@@ -744,7 +746,7 @@ static double goodkr(int N, double mu, double q, double L, double kr) {
 }
 
 void compute_u_coefficients(int N, double mu, double q, double L, double kcrc, double complex u[]) {
-    double y = M_PI/L;
+    double y = _PI_/L;
     double k0r0 = kcrc * exp(-L);
     double t = -2*y*log(k0r0/2);
     int m;
@@ -787,7 +789,7 @@ void fht(int N, const double r[], const double complex a[], double k[], double c
     }
 
 
-    int id = omp_get_thread_num();
+    // int id = omp_get_thread_num();
     // omp_set_lock(lock); //Only a single thread writes
     // printf("My Thread num in fht is: %d\n", id);
     /* Compute the convolution b = a*u using FFTs */
@@ -848,8 +850,8 @@ void fftlog_ComputeXiLM(int l, int m, int N, const double k[], const double pk[]
         a[i] = pow(k[i], 1 ) * pk[i]; // m = 1 in our case
     fht(N, k, a, r, b, 0, 0, 1, 1, NULL, ptsz);
     for(i = 0; i < N; i++)
-        xi[i] = creal(pow(2*M_PI*r[i], -1) * b[i]);
-        // xi[i] = creal(pow(2*M_PI*r[i], -1.5) * b[i]);
+        xi[i] = creal(pow(2* _PI_*r[i], -1) * b[i]);
+        // xi[i] = creal(pow(2*_PI_*r[i], -1.5) * b[i]);
     //
     free(a);
     free(b);
@@ -871,8 +873,8 @@ void fftlog_ComputeXiLM_cl2gamma(int l, int m, int N, const double k[], const do
         a[i] = pow(k[i], 1 ) * pk[i]; //dim = 2 in our case
     fht(N, k, a, r, b, 2, 0, 1, 1, NULL, ptsz);
     for(i = 0; i < N; i++)
-        xi[i] = creal(pow(2*M_PI*r[i], -1) * b[i]);
-        // xi[i] = creal(pow(2*M_PI*r[i], -1.5) * b[i]);
+        xi[i] = creal(pow(2*_PI_*r[i], -1) * b[i]);
+        // xi[i] = creal(pow(2*_PI_*r[i], -1.5) * b[i]);
     //
     free(a);
     free(b);
@@ -888,8 +890,8 @@ void pk2xi(int N, const double k[], const double pk[], double r[], double xi[], 
 }
 
 void xi2pk(int N, const double r[], const double xi[], double k[], double pk[], struct tszspectrum * ptsz) {
-    // static const double TwoPiCubed = 8*M_PI*M_PI*M_PI;
-    static const double TwoPiCubed = pow(2.*M_PI,2.);///2./pow(2.*M_PI,-3)/4./pow(M_PI,3);
+    // double TwoPiCubed = 8*_PI_*_PI_*_PI_;
+    double TwoPiCubed = pow(2.*_PI_,2.);///2./pow(2.*_PI_,-3)/4./pow(_PI_,3);
     // fftlog_ComputeXiLM(0, 2, N, r, xi, k, pk, ptsz);
     fftlog_ComputeXiLM(0, 1, N, r, xi, k, pk, ptsz);
     int j;
@@ -903,8 +905,9 @@ void cl2gamma(int N, const double k[], const double pk[], double r[], double xi[
 }
 
 void gamma2cl(int N, const double r[], const double xi[], double k[], double pk[], struct tszspectrum * ptsz) {
-    // static const double TwoPiCubed = 8*M_PI*M_PI*M_PI;
-    static const double TwoPiCubed = pow(2.*M_PI,2.);///2./pow(2.*M_PI,-3)/4./pow(M_PI,3);
+    // static const double TwoPiCubed = 8*_PI_*_PI_*_PI_;
+    //static const
+    double TwoPiCubed = pow(2.*_PI_,2.);///2./pow(2.*_PI_,-3)/4./pow(_PI_,3);
     // fftlog_ComputeXiLM(0, 2, N, r, xi, k, pk, ptsz);
     fftlog_ComputeXiLM_cl2gamma(0, 1, N, r, xi, k, pk, ptsz);
     int j;
