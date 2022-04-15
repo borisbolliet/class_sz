@@ -253,6 +253,7 @@ cdef extern from "class.h":
         int n_arraySZ_for_integral
         double M1SZ
         double M2SZ
+        double cl_gal_gal_A_sn
         double * array_m_dndlnM
         int n_m_dndlnM
         double P0GNFW
@@ -297,6 +298,7 @@ cdef extern from "class.h":
         double * cl_kSZ_kSZ_gal_hf
         double * cl_kSZ_kSZ_gal_lensing_term
         double * cov_ll_kSZ_kSZ_gal
+        double * cl_t2t2f
         double * cl_kSZ_kSZ_gallens_1h_fft
         double * cl_kSZ_kSZ_gallens_2h_fft
         double * cl_kSZ_kSZ_gallens_3h_fft
@@ -311,8 +313,12 @@ cdef extern from "class.h":
         double * cov_ll_kSZ_kSZ_lens
         double * cl_tSZ_lensmag_1h
         double * cl_tSZ_lensmag_2h
+        double * cl_tSZ_lens_1h
+        double * cl_tSZ_lens_2h
         double * cl_gal_gallens_1h
         double * cl_gal_gallens_2h
+        double * cl_gallens_gallens_1h
+        double * cl_gallens_gallens_2h
         double * thetas_arcmin
         double * gamma_gal_gallens_1h
         double * gamma_gal_gallens_2h
@@ -320,6 +326,8 @@ cdef extern from "class.h":
         double * cl_kSZ_kSZ_2h
         double * cl_gal_gal_1h
         double * cl_gal_gal_2h
+        double * cl_gal_gal_hf
+        double * cl_gal_lens_hf
         double * cl_gal_lens_1h
         double * cl_gal_lens_2h
         double * cl_lens_lens_1h
@@ -349,10 +357,13 @@ cdef extern from "class.h":
         double * pk_bb_at_z_2h
         double * cl_gal_lensmag_1h
         double * cl_gal_lensmag_2h
+        double * cl_gal_lensmag_hf
         double * cl_lens_lensmag_1h
         double * cl_lens_lensmag_2h
+        double * cl_lens_lensmag_hf
         double * cl_lensmag_lensmag_1h
         double * cl_lensmag_lensmag_2h
+        double * cl_lensmag_lensmag_hf
         double ** tllprime_sz
         double * cov_Y_N_mass_bin_edges
         double * cov_N_N
@@ -603,6 +614,12 @@ cdef extern from "class.h":
                   double * pk_cb_tot_out,
                   int nonlinear)
 
+    double get_scale_dependent_bias_at_z_and_k(double z_asked,
+                                               double k_asked,
+                                               double bh,
+                                               void * ptsz)
+
+
     double get_gas_profile_at_x_M_z_nfw_200m(double x_asked,
                                              double m_asked,
                                              double z_asked,
@@ -615,6 +632,9 @@ cdef extern from "class.h":
                                              void * pba,
                                              void * ptsz)
 
+    double get_lensing_noise_at_ell(double l,
+                                    void * ptsz)
+
     double evaluate_truncated_nfw_profile(double z,
                                           double k,
                                           double r_delta,
@@ -623,8 +643,9 @@ cdef extern from "class.h":
 
     double get_mean_galaxy_bias_at_z(double z, void * ptsz)
 
-    double get_f_tinker10_at_nu_and_z(double nu, double z, int hm_consistency, void * ptsz)
-    double get_T10_alpha_at_z(double z,void * ptsz);
+    double get_f_tinker10_at_nu_and_z(double nu, double z,void * ptsz)
+    double get_T10_alpha_at_z(double z,void * ptsz)
+    double get_f_tinker08_at_nu_and_z(double nu, double z, void * ptsz)
 
     double get_gas_profile_at_x_M_z_b16_200c(double x_asked,
                                              double m_asked,
@@ -655,8 +676,16 @@ cdef extern from "class.h":
                                          double m_asked,
                                          void * ptsz)
 
+    double get_normalization_gas_density_profile(double z_asked,
+                                                 double m_asked,
+                                                 void * ptsz)
+    double get_m_to_xout_at_z_and_m(double z_asked,
+                                    double m_asked,
+                                    void * ptsz)
+
     double get_c200m_at_m_and_z_D08(double M, double z)
     double get_c200c_at_m_and_z_D08(double M, double z)
+    double get_c200c_at_m_and_z_B13(double M, double z, void * ba, void * tsz)
 
     double m_nfw(double x)
 

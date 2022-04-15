@@ -302,8 +302,8 @@ def run(args):
     p_dict['M_min'] = 1e10#*p_dict['h']
     p_dict['M_max'] = 5e15#*p_dict['h']
     # p_dict['HMF_prescription_NCDM'] = 'No-pres'
-    p_dict['mass function'] = 'T10'  #fiducial  T10
-    # p_dict['mass function'] = 'T08M200c'  #fiducial  T10
+    # p_dict['mass function'] = 'T10'  #fiducial  T10
+    p_dict['mass function'] = 'T08M200c'  #fiducial  T10
     p_dict['galaxy_sample'] = "unwise"
     #p_dict['full path to dndz (normalized galaxy dist.)'] = "/Users/boris/Work/CLASS-SZ/SO-SZ/class_sz_external_data_and_scripts/run_scripts/yxg/data/dndz/unwise_"+couleur+".txt"
 
@@ -314,7 +314,7 @@ def run(args):
     p_dict['full_path_to_source_dndz_gal'] = '/Users/boris/Work/DES/nz_maglim_z_bin3.txt'
     p_dict['convert_cls_to_gamma'] = 1
 
-    p_dict['concentration parameter'] = 'D08'
+    p_dict['concentration parameter'] = 'B13'
 
 
     # p_dict['M_min_HOD_mass_factor_unwise'] = 1.03
@@ -344,7 +344,7 @@ def run(args):
     # p_dict['hm_consistency'] =  0: nothing 1: counter terms 2: alpha(z)
 
     p_dict['delta for electron density'] ='200c'
-    p_dict['delta for galaxies'] ='200m'
+    p_dict['delta for galaxies'] ='200c'
     p_dict['delta for matter density'] ='200m' # not used
 
     p_dict['sz_verbose'] = 3
@@ -475,6 +475,7 @@ def run(args):
             p_dict['ksz_filter_file'] = '/Users/boris/Work/CLASS-SZ/SO-SZ/class_sz/sz_auxiliary_files/UNWISE_galaxy_distributions/AdvACT_kSZfilt_ellmax8000_smoothed_tapered_nosqrt_w1p5arcminbeam.txt'
             p_dict['full_path_to_noise_curve_for_t_t'] = '/Users/boris/Work/CLASS-SZ/SO-SZ/class_sz/sz_auxiliary_files/noise_curves/AdvACT_T_default_Nseasons4.0_NLFyrs2.0_noisecurves_deproj0_mask_16000_ell_TT_yy.txt'
             #p_dict['A10_file'] = "class_sz_lnIgnfw-and-d2lnIgnfw-vs-lnell-over-ell500_A10.txt"
+            p_dict['cmb_lensing_noise_file'] = '/Users/boris/Work/CLASS-SZ/SO-SZ/class_sz/sz_auxiliary_files/noise_curves/so_lensing_noise.dat'
 
             # exit(0)
             # p_dict['nfw_profile_epsabs'] = 1.e-50

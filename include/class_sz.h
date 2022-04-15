@@ -202,6 +202,7 @@ struct tszspectrum {
   double * cl_isw_tsz;
   double * cl_isw_auto;
   double * cov_ll_kSZ_kSZ_gal;
+  double * cl_t2t2f;
   double * cl_kSZ_kSZ_gal_lensing_term;
   double * cl_kSZ_kSZ_gal_1h;
   double * cl_kSZ_kSZ_gal_1h_fft;
@@ -259,6 +260,11 @@ struct tszspectrum {
   double M_min_ng_bar;
   double M_max_ng_bar;
 
+
+  int index_d_tot;
+  int index_phi;
+  int number_of_titles;
+
   int need_m200m_to_m200c;
   int need_m200c_to_m200m;
   int need_m200m_to_m500c;
@@ -267,8 +273,16 @@ struct tszspectrum {
   int need_m200c_to_m500c;
   int need_m500c_to_m200c;
 
+  int need_ng_bias;
+  int nz_ng_bias;
+  int nk_ng_bias;
+  double * array_ln_1pz_ng_bias;
+  double * array_ln_k_ng_bias;
+  double * array_ln_ng_bias_at_z_and_k;
+
   int need_ksz_template;
   int need_tt_noise;
+  int need_lensing_noise;
 
 
   int integrate_wrt_mvir;
@@ -416,6 +430,8 @@ struct tszspectrum {
   int has_bk_ttg_at_z_hf;
 
   int has_mean_galaxy_bias;
+  int has_ng_in_bh;
+  double fNL;
 
   int has_mean_y;
   int index_md_mean_y;
@@ -1009,10 +1025,15 @@ struct tszspectrum {
 
   double M_min_HOD_mass_factor_unwise;
   double x_out_truncated_nfw_profile;
-  double x_out_nfw_profile;
+  double x_out_truncated_nfw_profile_electrons;
+  double x_out_truncated_density_profile;
   double M_min_HOD_satellite_mass_factor_unwise;
   double M1_prime_HOD_factor;
   double cvir_tau_profile_factor;
+
+
+  double effective_galaxy_bias;
+  int use_bg_eff_in_ksz2g_eff;
 
   int hm_consistency;
   int check_consistency_conditions;
@@ -1042,6 +1063,10 @@ struct tszspectrum {
   double * sky_averaged_ylims;
 
 
+  double shape_noise_siggamma2;
+  double ns_gal_per_arcmin2;
+  double cl_gal_gal_A_sn;
+
   int experiment;
   //SO completeness
   double * SO_thetas;
@@ -1052,6 +1077,7 @@ struct tszspectrum {
   double * SO_skyfrac;
   int  SO_RMS_size;
 
+  double csat_over_cdm;
   //INPUT PARAMETERS
   int nlSZ;
   int n_ell_independent_integrals;
@@ -1060,6 +1086,14 @@ struct tszspectrum {
   double * l_unwise_filter;
   double * f_unwise_filter;
   int unwise_filter_size;
+
+  double * M_min_of_z_z;
+  double * M_min_of_z_M_min;
+  int M_min_of_z_size;
+
+  double * nl_lensing_noise;
+  double * l_lensing_noise;
+  int lensing_noise_size;
 
   double * l_ksz_template;
   double * cl_ksz_template;
@@ -1116,6 +1150,8 @@ struct tszspectrum {
   int n_k;
   int n_z_dndlnM;
   int n_m_dndlnM;
+
+  int compute_ksz2ksz2;
 
   // int n_z_L_sat;
   // int n_m_L_sat;
@@ -1229,6 +1265,7 @@ struct tszspectrum {
   //3:Jenkins 2001 (J01)
   //4:Tinker 2008 (T08)
   //5:Tinker 2008 interpolated @ M500 (T08@M500)
+  int SHMF;
 
   //Precision Parameters For qromb_sz_integrand
   int K;
@@ -1299,7 +1336,11 @@ double * steps_m;
   double L0_cib; // Normalisation of L − M relation
   double sigma2_LM_cib; // Size of of halo masses sourcing CIB emission
   int has_cib_flux_cut;
-  double z_obs_cib; 
+  double z_obs_cib;
+  double z_plateau_cib;
+  double M_min_subhalo_in_Msun;
+  int use_nc_1_for_all_halos_cib_HOD;
+  int use_redshift_dependent_M_min;
 
   double nfw_profile_epsabs;
   double nfw_profile_epsrel;
@@ -1527,9 +1568,12 @@ double * steps_m;
   double * array_m_L_sat;
   double * array_z_L_sat;
   double * array_nu_L_sat;
+
   double ** array_L_sat_at_M_z_nu;
   double ** array_L_sat_at_z_and_M_at_nu;
   //double * array_L_sat_at_z_and_M_at_nu_prime;
+
+
 
   double * array_z_W_lensmag;
   double * array_W_lensmag;
@@ -1592,6 +1636,11 @@ double * steps_m;
   double * array_dcib0dz_at_z_nu;
 
 
+  double * array_m_to_xout_mass;
+  double * array_m_to_xout_redshift;
+  double * array_m_to_xout_at_z_m;
+
+
   double * array_dydz_redshift;
   double * array_dydz_at_z;
 
@@ -1634,6 +1683,7 @@ int szpowerspectrum_init(struct background * pba,
   int compute_sz(struct background * pba,
                  struct nonlinear * pnl,
                  struct primordial * ppm,
+                 struct perturbs * ppt,
                  struct tszspectrum * ptsz,
                  double * pvecback,
                  double * Pvectsz);
@@ -1648,6 +1698,7 @@ int szpowerspectrum_init(struct background * pba,
                               struct background * pba,
                               struct primordial * ppm,
                               struct nonlinear * pnl,
+                              struct perturbs * ppt,
                               struct tszspectrum * ptsz);
 
   double delta_ell_lens_at_ell_and_z( double * pvecback,
@@ -1713,6 +1764,9 @@ double get_tau_profile_at_z_m_l(double z,
 double get_ksz_filter_at_l(double l,
                            struct tszspectrum * ptsz);
 
+double get_M_min_of_z(double l,
+                      struct tszspectrum * ptsz);
+
   int write_output_to_files_ell_indep_ints(struct nonlinear * pnl,
                                            struct background * pba,
                                            struct tszspectrum * ptsz);
@@ -1743,6 +1797,7 @@ double get_ksz_filter_at_l(double l,
                          struct background * pba,
                          struct primordial * ppm,
                          struct nonlinear * pnl,
+                         struct perturbs * ppt,
                          struct tszspectrum * ptsz);
 
   int evaluate_halo_bias_b2(double * pvecback,
@@ -1799,6 +1854,8 @@ double evaluate_pk_halofit_over_pk_linear_at_ell_plus_one_half_over_chi(double *
                                                                      struct nonlinear * pnl,
                                                                      struct tszspectrum * ptsz);
 int load_cl_ksz_template(struct tszspectrum * ptsz);
+
+int load_nl_lensing_noise(struct tszspectrum * ptsz);
 
 
   int initialise_and_allocate_memory(struct tszspectrum * ptsz);
@@ -2021,7 +2078,7 @@ double evaluate_phi_cib(double z, struct tszspectrum * ptsz);
 double evaluate_sed_cib(double z, double nu, struct tszspectrum * ptsz);
 double evaluate_dust_temperature(double z, struct tszspectrum * ptsz);
 double evaluate_galaxy_luminosity(double z, double M, double nu, struct tszspectrum * ptsz);
-double subhalo_hmf_dndlnMs(double M_host,double M_sub);
+double subhalo_hmf_dndlnMs(double M_host,double M_sub,struct tszspectrum * ptsz);
 
 double integrand_kSZ2_X_at_theta(double ell_prime, void *p);
 double integrand_kSZ2_X(double theta, void *p);
@@ -2196,13 +2253,26 @@ double get_gas_profile_at_x_M_z_b16_200c(double x_asked,
 
 
 double get_second_order_bias_at_z_and_nu(double z,
-                                     double nu,
-                                     struct tszspectrum * ptsz,
-                                     struct background * pba);
+                                         double nu,
+                                         struct tszspectrum * ptsz,
+                                         struct background * pba);
 
 double get_first_order_bias_at_z_and_nu(double z,
                                          double nu,
                                          struct tszspectrum * ptsz);
+
+double get_ng_bias_contribution_at_z_and_k(double z,
+                                           double k,
+                                           double bh,
+                                           struct background * pba,
+                                           struct perturbs * ppt,
+                                           struct tszspectrum * ptsz);
+
+double get_scale_dependent_bias_at_z_and_k(double z,
+                                           double k,
+                                           double bh,
+                                           struct tszspectrum *ptsz);
+
 
 double get_vrms2_at_z(double z,
                       struct tszspectrum * ptsz);
