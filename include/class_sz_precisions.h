@@ -7,6 +7,7 @@ class_sz_string_parameter(full_path_to_noise_curve_for_t_t,"full_path_to_noise_c
 class_sz_string_parameter(full_path_to_dndz_gal,"/sz_auxiliary_files/WISC_bin3.txt","custom dndz file")
 class_sz_string_parameter(full_path_to_source_dndz_gal,"/sz_auxiliary_files/WISC_bin3.txt","custom dndz file")
 class_sz_string_parameter(full_path_to_redshift_dependent_M_min,"/sz_auxiliary_files/websky_halo_mass_completion_z_Mmin_in_Msun_over_h.txt","custom M_min file")
+
 //class_sz_string_parameter(UNWISE_dndz_file,"/sz_auxiliary_files/UNWISE_galaxy_distributions/normalised_dndz.txt","unWISE dndz file")
 class_sz_string_parameter(UNWISE_dndz_file,"/sz_auxiliary_files/UNWISE_galaxy_distributions/normalised_dndz_cosmos.txt","unWISE dndz file")
 class_sz_string_parameter(UNWISE_fdndz_file,"/sz_auxiliary_files/UNWISE_galaxy_distributions/normalised_fdndz.txt","unWISE fdndz file")
@@ -37,13 +38,15 @@ class_sz_string_parameter(cmb_lensing_noise_file,"cmb_lensing_noise_file","cmb_l
 
 class_sz_string_parameter(Planck_thetas_file,"/sz_auxiliary_files/SZ_thetas.txt","Planck_thetas_file")
 class_sz_string_parameter(SO_thetas_file,"/sz_auxiliary_files/so_3freqs_191121_thetas.txt","SO_thetas_file")
+
 class_sz_string_parameter(Planck_skyfracs_file,"/sz_auxiliary_files/SZ_skyfracs.txt","Planck_skyfracs_file")
 class_sz_string_parameter(SO_skyfracs_file,"/sz_auxiliary_files/so_3freqs_191121_skyfracs.txt","SO_skyfracs_file")
+
 class_sz_string_parameter(Planck_ylims_file,"/sz_auxiliary_files/SZ_ylims.txt","Planck_ylims_file")
 class_sz_string_parameter(SO_ylims_file,"/sz_auxiliary_files/so_3freqs_191121_ylims.txt","SO_ylims_file")
 
 
-class_sz_ptsz_parameter(n_ell_density_profile,int,100)
+class_sz_ptsz_parameter(n_k_density_profile,int,100)
 class_sz_ptsz_parameter(n_m_density_profile,int,100)
 class_sz_ptsz_parameter(n_z_density_profile,int,100)
 
@@ -87,6 +90,7 @@ class_sz_ptsz_parameter(n_m_L_sat , int,102);
 class_sz_ptsz_parameter(n_nu_L_sat,int,103);
 
 class_sz_ptsz_parameter(use_xout_in_density_profile_from_enclosed_mass , int,0);
+class_sz_ptsz_parameter(tabulate_rhob_xout_at_m_and_z , int,0);
 class_sz_ptsz_parameter(n_z_m_to_xout , int,101);
 class_sz_ptsz_parameter(n_mass_m_to_xout , int,102);
 

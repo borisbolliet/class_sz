@@ -1725,7 +1725,6 @@ int input_read_parameters(
 
       /** (sz) SZ parameters */
 
-
       //BB: read SZ parameters from ini file
       class_read_int("nlSZ",ptsz->nlSZ);
       class_read_int("convert_cls_to_gamma",ptsz->convert_cls_to_gamma);
@@ -1821,6 +1820,7 @@ int input_read_parameters(
       class_read_int("mass_dependent_bias",ptsz->mass_dependent_bias);
 
       class_read_int("experiment",ptsz->experiment);
+      class_read_int("use_planck_binned_proba",ptsz->use_planck_binned_proba);
       class_read_double("bin_z_min_cluster_counts",ptsz->bin_z_min_cluster_counts);
       class_read_double("bin_z_max_cluster_counts",ptsz->bin_z_max_cluster_counts);
       class_read_double("bin_dz_cluster_counts",ptsz->bin_dz_cluster_counts);
@@ -1853,6 +1853,7 @@ int input_read_parameters(
 
       class_read_int("apply_relativistic_correction_to_y_m",ptsz->apply_relativistic_correction_to_y_m);
       class_read_int("has_selection_function",pcsz->has_completeness);
+      class_read_int("use_m500c_in_ym_relation",ptsz->use_m500c_in_ym_relation);
       class_read_int("mass_range",pcsz->mass_range);
 
 
@@ -1872,6 +1873,7 @@ int input_read_parameters(
       class_read_double("A_ym",ptsz->A_ym);
       class_read_double("B_ym",ptsz->B_ym);
       class_read_double("C_ym",ptsz->C_ym);
+      class_read_double("m_pivot_ym [Msun]",ptsz->m_pivot_ym);
 
       //For the computation of sigma2
       class_read_int("ndim_masses",ptsz->ndimSZ);
@@ -1886,6 +1888,8 @@ int input_read_parameters(
 
       class_read_double("phi0SZ",ptsz->phi0SZ);
       class_read_double("eta0SZ",ptsz->eta0SZ);
+
+      class_read_int("no_b2",ptsz->no_b2);
 
       //Multplicity function Bocquet 2015
 
@@ -2136,6 +2140,49 @@ int input_read_parameters(
         pnl->has_pk_m = _TRUE_;
         ptsz->need_hmf = 1;
       }
+
+      if ((strstr(string1,"pk_em_at_z_1h") != NULL) ) {
+        ptsz->has_pk_em_at_z_1h =_TRUE_;
+        ppt->has_density_transfers=_TRUE_;
+        ppt->has_pk_matter = _TRUE_;
+        ppt->has_perturbations = _TRUE_;
+        pnl->has_pk_cb = _TRUE_;
+        pnl->has_pk_m = _TRUE_;
+        ptsz->need_hmf = 1;
+      }
+
+      if ((strstr(string1,"pk_em_at_z_2h") != NULL) ) {
+        ptsz->has_pk_em_at_z_2h =_TRUE_;
+        ppt->has_density_transfers=_TRUE_;
+        ppt->has_pk_matter = _TRUE_;
+        ppt->has_perturbations = _TRUE_;
+        pnl->has_pk_cb = _TRUE_;
+        pnl->has_pk_m = _TRUE_;
+        ptsz->need_hmf = 1;
+      }
+
+
+      if ((strstr(string1,"pk_HI_at_z_1h") != NULL) ) {
+        ptsz->has_pk_HI_at_z_1h =_TRUE_;
+        ppt->has_density_transfers=_TRUE_;
+        ppt->has_pk_matter = _TRUE_;
+        ppt->has_perturbations = _TRUE_;
+        pnl->has_pk_cb = _TRUE_;
+        pnl->has_pk_m = _TRUE_;
+        ptsz->need_hmf = 1;
+      }
+
+      if ((strstr(string1,"pk_HI_at_z_2h") != NULL) ) {
+        ptsz->has_pk_HI_at_z_2h =_TRUE_;
+        ppt->has_density_transfers=_TRUE_;
+        ppt->has_pk_matter = _TRUE_;
+        ppt->has_perturbations = _TRUE_;
+        pnl->has_pk_cb = _TRUE_;
+        pnl->has_pk_m = _TRUE_;
+        ptsz->need_hmf = 1;
+      }
+
+
 
       if ((strstr(string1,"pk_at_z_1h") != NULL) ) {
         ptsz->has_pk_at_z_1h =_TRUE_;
@@ -2772,6 +2819,18 @@ int input_read_parameters(
         // ptsz->need_hmf = 1;
       }
 
+      if ((strstr(string1,"lens_lens_hf") != NULL) ) {
+        ptsz->has_lens_lens_hf =_TRUE_;
+        ppt->has_density_transfers=_TRUE_;
+        ppt->has_pk_matter = _TRUE_;
+        ppt->has_perturbations = _TRUE_;
+        pnl->has_pk_cb = _TRUE_;
+        pnl->has_pk_m = _TRUE_;
+        // ptsz->need_hmf = 1;
+      }
+
+
+
       if ((strstr(string1,"gal_lensmag_hf") != NULL) ) {
         ptsz->has_gal_lensmag_hf =_TRUE_;
         ppt->has_density_transfers=_TRUE_;
@@ -3189,6 +3248,21 @@ int input_read_parameters(
           pnl->has_pk_m = _TRUE_;
           ptsz->need_sigma = 1;
           }
+      if ((strstr(string1,"tabulate_rhob_xout_at_m_and_z") != NULL) ) {
+          ptsz->tabulate_rhob_xout_at_m_and_z = 1;
+          // ppt->has_density_transfers=_TRUE_;
+          // ppt->has_pk_matter = _TRUE_;
+          // ppt->has_perturbations = _TRUE_;
+          // pnl->has_pk_cb = _TRUE_;
+          // pnl->has_pk_m = _TRUE_;
+          // ptsz->need_sigma = 1;
+          }
+      if ((strstr(string1,"scale_dependent_bias") != NULL) ) {
+        ppt->has_density_transfers=_TRUE_;
+        ppt->has_perturbations = _TRUE_;
+        ptsz->need_ng_bias = 1;
+      }
+
       class_call(parser_read_string(pfc,"include_ssc",&string1,&flag1,errmsg),
                    errmsg,
                    errmsg);
@@ -3516,7 +3590,6 @@ int input_read_parameters(
 
 
 
-
      else if (ptsz->pressure_profile==4){
        //Battaglia et al pressure profile [arXiv:1109.3711]
 
@@ -3541,7 +3614,7 @@ int input_read_parameters(
      }
 class_read_int("truncate_wrt_rvir",ptsz->truncate_wrt_rvir);
 class_read_int("use_websky_m200m_to_m200c_conversion",ptsz->use_websky_m200m_to_m200c_conversion);
-
+class_read_int("no_tt_noise_in_kSZ2X_cov",ptsz->no_tt_noise_in_kSZ2X_cov);
       /* mass function */
       class_call(parser_read_string(pfc,"sub_halo_mass_function",&string1,&flag1,errmsg),
                  errmsg,
@@ -3554,7 +3627,6 @@ class_read_int("use_websky_m200m_to_m200c_conversion",ptsz->use_websky_m200m_to_
         ptsz->SHMF=2;
         }
       }
-
 
       /* mass function SZ */
       class_call(parser_read_string(pfc,"mass function",&string1,&flag1,errmsg),
@@ -3701,7 +3773,7 @@ class_read_int("use_websky_m200m_to_m200c_conversion",ptsz->use_websky_m200m_to_
       class_read_string("root",ptsz->root);
       class_read_string("root",pcsz->root);
 
-      class_read_int("sz_verbose",ptsz->sz_verbose);
+      class_read_int("class_sz_verbose",ptsz->sz_verbose);
       class_read_double("f_free",ptsz->f_free);
       class_read_double("f_b_gas",ptsz->f_b_gas);
 
@@ -4975,6 +5047,10 @@ class_read_int("use_websky_m200m_to_m200c_conversion",ptsz->use_websky_m200m_to_
       + ptsz->has_pk_gg_at_z_2h
       + ptsz->has_pk_bb_at_z_1h
       + ptsz->has_pk_bb_at_z_2h
+      + ptsz->has_pk_em_at_z_1h
+      + ptsz->has_pk_em_at_z_2h
+      + ptsz->has_pk_HI_at_z_1h
+      + ptsz->has_pk_HI_at_z_2h
       + ptsz->has_bk_at_z_1h
       + ptsz->has_bk_at_z_2h
       + ptsz->has_bk_at_z_3h
@@ -5035,6 +5111,7 @@ class_read_int("use_websky_m200m_to_m200c_conversion",ptsz->use_websky_m200m_to_
       + ptsz->has_gal_lens_1h
       + ptsz->has_gal_lens_2h
       + ptsz->has_gal_lens_hf
+      + ptsz->has_lens_lens_hf
       + ptsz->has_gal_lensmag_1h
       + ptsz->has_gal_lensmag_2h
       + ptsz->has_gal_gallens_1h
@@ -5826,6 +5903,7 @@ int input_default_params(
 
   ptsz->use_analytical_truncated_nfw = 1;
 
+  ptsz->use_m500c_in_ym_relation = 1;
   ptsz->use_hod = 1;
   ptsz->galaxy_sample = 0; // WIxSC
   ptsz->unwise_galaxy_sample_id = -1; // red
@@ -5924,6 +6002,7 @@ int input_default_params(
   //Hydrostatic Equilibrium Mass Bias, Piffaretti & Valdarnini [arXiv:0808.1111]
 
    ptsz->truncate_wrt_rvir = 1;
+   ptsz->no_tt_noise_in_kSZ2X_cov = 0;
   // battaglia pressure profile:
   ptsz->gamma_B12 = -0.3;
   ptsz->alpha_B12 = 1.;
@@ -6001,6 +6080,7 @@ int input_default_params(
   ptsz->bin_z_max_cluster_counts = 1.;
   ptsz->bin_dz_cluster_counts = 0.1;
 
+  ptsz->use_planck_binned_proba = 0;
 
 
   ptsz->bin_dlog10_snr = 0.25;
@@ -6031,7 +6111,9 @@ int input_default_params(
   ptsz->ystar_ym = -0.186; //-0.186 ref. value in SZ_plus_priors.ini (cosmomc)
   ptsz->alpha_ym = 1.78; //1.789 ref. value in SZ_plus_priors.ini (cosmomc)
   // ptsz->ystar_ym = pow(10.,-0.19)/pow(2., ptsz->alpha_ym)*0.00472724; ////8.9138435358806980e-004;
-  ptsz->sigmaM_ym = 0.173; //innatura logsee tab 1 of planck cc 2015 paper
+  ptsz->sigmaM_ym = 0.173; //in natural log, see tab 1 of planck cc 2015 paper
+  //0.173/np.log(10.) = 0.075, in szcounts.f90. But it's wrong. It should be in natural log.
+
   ptsz->beta_ym = 0.66;
   ptsz->thetastar = 6.997;
   ptsz->alpha_theta = 1./3.;
@@ -6040,6 +6122,8 @@ int input_default_params(
   ptsz->B_ym = 0.08;
   ptsz->A_ym = 4.95e-5;
   ptsz->C_ym = -0.025;
+
+  ptsz->m_pivot_ym = 3e14;
 
   ptsz->temperature_mass_relation=0;
 
@@ -6060,6 +6144,9 @@ int input_default_params(
   ptsz->k_max_for_pk_in_tSZ = 1.e1; //#default 5
 
   ptsz->z_for_pk_hm = 1.;
+  ptsz->k_min_for_pk_hm = 1e-2;
+  ptsz->k_min_for_pk_hm = 1e1;
+  ptsz->dlnk_for_pk_hm = 0.1;
 
 
   //Multplicity function Tinker 2010
@@ -6073,6 +6160,8 @@ int input_default_params(
 
   ptsz->phi0SZ = -0.729;
   ptsz->eta0SZ = -0.243;
+
+  ptsz->no_b2 = 0;
 
   //Multplicity function Bocquet 2015
 
@@ -6159,6 +6248,7 @@ int input_default_params(
   ptsz->has_gal_lens_1h = _FALSE_;
   ptsz->has_gal_lens_2h = _FALSE_;
   ptsz->has_gal_lens_hf = _FALSE_;
+  ptsz->has_lens_lens_hf = _FALSE_;
   ptsz->has_gal_lensmag_1h = _FALSE_;
   ptsz->has_gal_lensmag_2h = _FALSE_;
   ptsz->has_gal_gallens_1h = _FALSE_;
@@ -6188,6 +6278,10 @@ int input_default_params(
   ptsz->has_pk_gg_at_z_2h = _FALSE_;
   ptsz->has_pk_bb_at_z_1h = _FALSE_;
   ptsz->has_pk_bb_at_z_2h = _FALSE_;
+  ptsz->has_pk_em_at_z_1h = _FALSE_;
+  ptsz->has_pk_em_at_z_2h = _FALSE_;
+  ptsz->has_pk_HI_at_z_1h = _FALSE_;
+  ptsz->has_pk_HI_at_z_2h = _FALSE_;
   ptsz->has_bk_at_z_1h = _FALSE_;
   ptsz->has_bk_at_z_2h = _FALSE_;
   ptsz->has_bk_at_z_3h = _FALSE_;
@@ -6355,6 +6449,11 @@ int input_default_params(
   ptsz->index_md_kSZ_kSZ_lens_3h_fft = 88;
   ptsz->index_md_kSZ_kSZ_lens_hf = 89;
 
+  ptsz->index_md_lens_lens_hf = 90;
+
+  ptsz->index_md_pk_em_at_z_1h = 91;
+  ptsz->index_md_pk_em_at_z_2h = 92;
+
   ptsz->integrate_wrt_mvir = 0;
   ptsz->integrate_wrt_m500c = 0;
   ptsz->integrate_wrt_m200c = 1;
@@ -6380,6 +6479,7 @@ int input_default_params(
   ptsz->need_lensing_noise=0;
   ptsz->has_electron_pressure = 0;
   ptsz->has_electron_density = 0;
+  ptsz->has_HI_density = 0;
   ptsz->has_galaxy = 0;
   ptsz->has_matter_density = 0;
   ptsz->has_lensing = 0;

@@ -34,6 +34,11 @@ int szcount_init(struct background * pba,
     if (ptsz->sz_verbose > 0)
       printf("->Computing SZ cluster counts.\n");
 
+      if (ptsz->sigmaM_ym == 0.){
+        if (ptsz->sz_verbose>0){
+          printf("--> No scatter in ym relation.\n");
+        }}
+
    // // if ((ptsz->experiment == 0 && ptsz->has_completeness_for_ps_SZ == 1)
    // //  || (ptsz->experiment == 0 && ptsz->has_sz_counts  == 1))
    //    read_Planck_noise_map(ptsz);
@@ -114,7 +119,7 @@ private(tstart, tstop,pvecsz,index_y)
     for(i = 0; i<pcsz->pvecsz_size;i++) pvecsz[i] = 0.;
 
 #pragma omp for schedule (dynamic)
-    for (index_y=0; index_y<pcsz->Nbins_y+1; index_y ++){
+    for (index_y=0; index_y<pcsz->Nbins_y; index_y ++){
 #pragma omp flush(abort)
 
       pvecsz[pcsz->index_y] = index_y;
@@ -176,8 +181,16 @@ int grid_C_2d(
 
   double * completeness_2d_to_1d = NULL;
   class_alloc(completeness_2d_to_1d,pcsz->nsteps_m*pcsz->nsteps_z*sizeof(double *),pcsz->error_message);
-
   int index_z, index_m, index_y;
+double ** completeness_2d = NULL;
+class_alloc(completeness_2d,pcsz->nsteps_m*sizeof(double *),pcsz->error_message);
+for (index_m=0;index_m<pcsz->nsteps_m;index_m++)
+{
+  class_alloc(completeness_2d[index_m],pcsz->nsteps_z*sizeof(double *),pcsz->error_message);
+}
+
+
+
 
   double fsky = 0.;
   int index_patches;
@@ -185,12 +198,14 @@ int grid_C_2d(
     fsky += ptsz->skyfracs[index_patches];
 
 int index_m_z = 0;
+
   for (index_m=0;index_m<pcsz->nsteps_m;index_m++)
   {
 
     for (index_z=0;index_z<pcsz->nsteps_z;index_z++){
 
       completeness_2d_to_1d[index_m_z]=1e-300;
+      completeness_2d[index_m][index_z] = 0.;
       index_m_z += 1;
 
     }
@@ -202,15 +217,18 @@ int index_m_z = 0;
 
   double y_min,y_max;
 
-  if (index_y != pcsz->Nbins_y){
   y_min = pow(10., pcsz->logy[index_y] - pcsz->dlogy/2.);
   y_max = pow(10., pcsz->logy[index_y] + pcsz->dlogy/2.);
-  }
-  else{
 
-  y_min = pow(10., pcsz->logy[index_y] - ptsz->bin_dlog10_snr_last_bin/2.);
-  y_max = pow(10., pcsz->logy[index_y] + ptsz->bin_dlog10_snr_last_bin/2.);
-}
+//   if (index_y != pcsz->Nbins_y){
+//   y_min = pow(10., pcsz->logy[index_y] - pcsz->dlogy/2.);
+//   y_max = pow(10., pcsz->logy[index_y] + pcsz->dlogy/2.);
+//   }
+//   else{
+//
+//   y_min = pow(10., pcsz->logy[index_y] - ptsz->bin_dlog10_snr_last_bin/2.);
+//   y_max = 1e100;//pow(10., pcsz->logy[index_y] + ptsz->bin_dlog10_snr_last_bin/2.);
+// }
 
   if (ptsz->sz_verbose > 3){
     printf("->SZ_counts grid_C_2d.\n");
@@ -220,7 +238,13 @@ int index_m_z = 0;
 
 if (pcsz->has_completeness == 1){
   if (ptsz->sigmaM_ym == 0.){
+    // if (ptsz->sz_verbose>0){
+    //   printf("--> No scatter in ym relation.\n");
+    // }
     int index_m_z = 0;
+
+// for (index_m=0;index_m<pcsz->nsteps_m;index_m++){
+
     for (index_z=0;index_z<pcsz->nsteps_z;index_z++){
       double zp = pcsz->steps_z[index_z];
 
@@ -228,40 +252,62 @@ if (pcsz->has_completeness == 1){
 
         //compute_theta_and_y_at_z_and_m
         double mp= exp(pcsz->steps_m[index_m]);
+
+        double m500c = 0.;
+        double m_ym = mp;
+
+
+
         if (ptsz->integrate_wrt_m200m == 1){
-          mp = get_m200m_to_m500c_at_z_and_M(zp,mp,ptsz);
+          m500c = get_m200m_to_m500c_at_z_and_M(zp,mp,ptsz);
         }
         if (ptsz->integrate_wrt_m200c == 1){
-          mp = get_m200c_to_m500c_at_z_and_M(zp,mp,ptsz);
+          m500c = get_m200c_to_m500c_at_z_and_M(zp,mp,ptsz);
         }
         //
-        double yp = get_y_at_m_and_z(mp,zp,ptsz,pba);
-        double thp = get_theta_at_m_and_z(mp,zp,ptsz,pba);
+
+        if (ptsz->use_m500c_in_ym_relation == 1){
+        m_ym = m500c;
+        }
+
+        double yp = get_y_at_m_and_z(m_ym,zp,ptsz,pba);
+        double thp = get_theta_at_m_and_z(m500c,zp,ptsz,pba);
         //Planck
 
         // if not planck, apply the mismatch function with C correction
         if (ptsz->experiment == 1){
-          double m_pivot = 3.e14*0.7;
+          double m_pivot = ptsz->m_pivot_ym*pba->h;// 1. convert to msun/h //not that it used to be *0.7 as in hasselfield paper.
           double m_over_m_pivot_500c = mp/m_pivot;
           thp = thp*pow(m_over_m_pivot_500c,ptsz->C_ym);
         }
 
 
-        find_theta_bin(ptsz,thp,l_array,theta_array);
-        int l1 = l_array[1];
-        int l2 = l_array[2];
-        double th1 = theta_array[1];
-        double th2 = theta_array[2];
+        // find_theta_bin(ptsz,thp,l_array,theta_array);
+        // int l1 = l_array[1];
+        // int l2 = l_array[2];
+        // double th1 = theta_array[1];
+        // double th2 = theta_array[2];
 
 
         int index_patches;
+        double comp_sky_tot = 0.;
         for (index_patches =0;index_patches<ptsz->nskyfracs;index_patches++){
 
-          double y1 = ptsz->ylims[index_patches][l1];
-          double y2 = ptsz->ylims[index_patches][l2];
-          double y = y1 + (y2-y1)/(th2-th1)*(thp-th1);
+          // double y1 = ptsz->ylims[index_patches][l1];
+          // double y2 = ptsz->ylims[index_patches][l2];
+          // double y = y1 + (y2-y1)/(th2-th1)*(thp-th1);
 
-          double c2 = erf_compl(yp,y,ptsz->sn_cutoff);
+          double y_interp = pwl_value_1d(ptsz->nthetas,
+                                         ptsz->thetas,
+                                         ptsz->ylims[index_patches],
+                                         thp);
+          double y = y_interp;
+          // printf("y = %.5e y_interp = %.5e r = %.5e\n",y,y_interp,y/y_interp);
+
+          double c2;
+
+          if (ptsz->use_planck_binned_proba == 1){
+          c2 = erf_compl(yp,y,ptsz->sn_cutoff);
           c2 *= erf_compl(yp,y,y_min);
           c2 *= (1.-erf_compl(yp,y,y_max));
 
@@ -278,14 +324,30 @@ if (pcsz->has_completeness == 1){
             c2 *= erf_compl(yp,y,y_min);
 
 
+          }}
+
+          else {
+            c2 = erf_compl_nicola(yp,y,ptsz->sn_cutoff,y_min,y_max);
           }
 
-          // completeness_2d[index_m][index_z] += c2*ptsz->skyfracs[index_patches];
+          completeness_2d[index_m][index_z] += c2*ptsz->skyfracs[index_patches]/fsky;
+          // printf("%d\n",index_patches);
+
           completeness_2d_to_1d[index_m_z] += c2*ptsz->skyfracs[index_patches];
+          // completeness_2d_to_1d[index_m_z] += 1.*ptsz->skyfracs[index_patches];
 
         } // end loop patches
         completeness_2d_to_1d[index_m_z] = log(completeness_2d_to_1d[index_m_z]);
         index_m_z += 1;
+
+        if (completeness_2d[index_m][index_z]>1.) completeness_2d[index_m][index_z] = 1.;
+        if (completeness_2d[index_m][index_z]<0.) completeness_2d[index_m][index_z] = 0.;
+
+        // double comp_sky_tot = 0.;
+        // for (index_patches =0;index_patches<ptsz->nskyfracs;index_patches++){
+        // }
+
+
       }//end m loop
     }//end z loop
   }//end if sigmaM=0
@@ -355,10 +417,14 @@ if (pcsz->has_completeness == 1){
 
           double c2;
 
+          if (ptsz->use_planck_binned_proba == 1){
           if (index_y==0)  {c2=erf_compl(y0,y1,ptsz->sn_cutoff)*(1.-erf_compl(y0,y1,y_max));}
           else if (index_y==pcsz->Nbins_y) {c2=erf_compl(y0,y1,y_min)*erf_compl(y0,y1,ptsz->sn_cutoff);}
           else {c2=erf_compl(y0,y1,ptsz->sn_cutoff)*erf_compl(y0,y1,y_min)*(1.-erf_compl(y0,y1,y_max));}
-
+          }
+          else{
+            c2 = erf_compl_nicola(y0,y1,ptsz->sn_cutoff,y_min,y_max);
+          }
           erfs[index1][index2]=erfs[index1][index2]+c2*ptsz->skyfracs[index_patches];
 
           erfs_2d_to_1d[index_th_y] += c2*ptsz->skyfracs[index_patches];
@@ -400,7 +466,7 @@ if (pcsz->has_completeness == 1){
 
         // if not planck, apply the mismatch function with C correction
         if (ptsz->experiment == 1){
-          double m_pivot = 3.e14*0.7;
+          double m_pivot = ptsz->m_pivot_ym*pba->h;
           double m_over_m_pivot_500c = mp/m_pivot;
           thp = thp*pow(m_over_m_pivot_500c,ptsz->C_ym);
         }
@@ -515,9 +581,16 @@ if (pcsz->has_completeness == 1){
 // exit(0);
 
 
-        if (int_comp > fsky) int_comp=fsky;
-        if (int_comp <= 0. || isinf(int_comp) || isnan(int_comp)) int_comp=1.e-300;
-
+        if (int_comp > fsky) {
+          printf("int_comp larger than fsky.\n");
+          int_comp=fsky;
+        }
+        if (int_comp <= 0. || isinf(int_comp) || isnan(int_comp)) {
+        if (int_comp <= 0.) printf("int_comp<0.\n");
+        if (isinf(int_comp)) printf("int_comp=infty.\n");
+        if (isnan(int_comp)) printf("comp=nan.\n");
+        int_comp=1.e-300;
+}
 
         // completeness_2d[index_m][index_z] =int_comp;
         completeness_2d_to_1d[index_m_z] = log(int_comp);
@@ -552,6 +625,14 @@ if (pcsz->has_completeness == 1){
       double z_bin_min = pcsz->z_center[index_z]-0.5*pcsz->dz;
       double z_bin_max = pcsz->z_center[index_z]+0.5*pcsz->dz;
 
+// if (index_z == 0){
+//   z_bin_min = pcsz->z_0;
+// }
+// else{
+//   z_bin_min = pcsz->z_center[j];
+// }
+
+
 struct Parameters_for_integrand_cluster_counts_redshift V;
   V.ptsz = ptsz;
   V.pba = pba;
@@ -568,12 +649,52 @@ struct Parameters_for_integrand_cluster_counts_redshift V;
   double z_max = z_bin_max;
 
 
-  r=Integrate_using_Patterson_adaptive(z_min,
-                                       z_max,
-                                       epsrel, epsabs,
-                                       integrand_cluster_counts_redshift,
-                                       params,0);
+  // r=Integrate_using_Patterson_adaptive(z_min,
+  //                                      z_max,
+  //                                      epsrel, epsabs,
+  //                                      integrand_cluster_counts_redshift,
+  //                                      params,0);
+  //
+int index_z_steps_z;
+int index_z_steps_z_min,index_z_steps_z_max;
+index_z_steps_z_min = 0;
+double test;
+test = 1e100;
+  for(index_z_steps_z = 0;index_z_steps_z<pcsz->nsteps_z;index_z_steps_z++){
+    if (fabs(pcsz->steps_z[index_z_steps_z]-(pcsz->z_center[index_z]-0.5*pcsz->dz))<test){
+      test = fabs(pcsz->steps_z[index_z_steps_z]-(pcsz->z_center[index_z]-0.5*pcsz->dz));
+      index_z_steps_z_min = index_z_steps_z;
+    }
+}
+test = 1e100;
+  for(index_z_steps_z = 0;index_z_steps_z<pcsz->nsteps_z;index_z_steps_z++){
+    if (fabs(pcsz->steps_z[index_z_steps_z]-(pcsz->z_center[index_z]+0.5*pcsz->dz))<test){
+      test = fabs(pcsz->steps_z[index_z_steps_z]-(pcsz->z_center[index_z]+0.5*pcsz->dz));
+      index_z_steps_z_max = index_z_steps_z-1;
+    }
+}
 
+if (ptsz->sz_verbose>3){
+if (index_y == 0)
+printf("index_y = %d index_z = %d z_min = %.3e index_z_steps_z_min = %d stepz_min = %.6e\n",index_y,index_z,pcsz->z_center[index_z]-0.5*pcsz->dz,index_z_steps_z_min,pcsz->steps_z[index_z_steps_z_min]);
+
+if (index_y == 0)
+printf("index_y = %d index_z = %d z_max = %.3e index_z_steps_z_max = %d stepz_max = %.6e\n",index_y,index_z,pcsz->z_center[index_z]+0.5*pcsz->dz,index_z_steps_z_max,pcsz->steps_z[index_z_steps_z_max]);
+}
+r = 0.;
+for (index_z_steps_z = index_z_steps_z_min;index_z_steps_z<index_z_steps_z_max+1;index_z_steps_z++){
+  for (index_m = 0;index_m<pcsz->nsteps_m;index_m++){
+    double zp = pcsz->steps_z[index_z_steps_z];
+    double zpp = pcsz->steps_z[index_z_steps_z+1];
+    double mp = exp(pcsz->steps_m[index_m]);
+    double fp = get_volume_at_z(zp,pba)*get_dndlnM_at_z_and_M(zp,mp,ptsz);
+    double cp = completeness_2d[index_m][index_z_steps_z];
+    double fpp = get_volume_at_z(zpp,pba)*get_dndlnM_at_z_and_M(zpp,mp,ptsz);
+    double cpp = completeness_2d[index_m][index_z_steps_z+1];
+    // printf("index_y =  %d cp = %.5e\n",index_y,cp);
+ r+= 0.5*fsky*(fp*cp+fpp*cpp)*pcsz->dlnM*(zpp-zp);
+  }
+}
 
 
       // pcsz->dNdzdy_theoretical[index_z][index_y]=4.*_PI_*SUM2;
@@ -588,7 +709,7 @@ struct Parameters_for_integrand_cluster_counts_redshift V;
     //
      }//end loop z bins for lkl
 
-  // free(completeness_2d);
+  free(completeness_2d);
   free(completeness_2d_to_1d);
 
 
@@ -664,14 +785,34 @@ struct Parameters_for_integrand_cluster_counts_mass V;
   //
   double m_min = exp(W->ptsz->steps_m[0]);
   double m_max = exp(W->ptsz->steps_m[W->ptsz->nsteps_m-1]);
-
+  // printf("m_min = %.5e, m_max = %.5e epsrel = %.5e epsabs = %.5e\n",m_min,m_max,epsrel,epsabs);
+  //
   r=Integrate_using_Patterson_adaptive(log(m_min),
                                        log(m_max),
                                        epsrel, epsabs,
                                        integrand_cluster_counts_mass,
-                                       params,0);
+                                       params,0); // 0 is show neval
 
+
+ // gsl_function F;
+ // double result_gsl, error;
+ // F.function = &integrand_cluster_counts_mass;
+ // F.params = params;
+ // int n_subintervals_gsl = 0;
+ // gsl_integration_romberg_workspace * w = gsl_integration_romberg_alloc (n_subintervals_gsl);
+ //
+ // size_t neval;
+ // double xin = log(m_min);
+ // double xout = log(m_max);
+ // gsl_integration_romberg(&F,xin,xout,epsabs,epsrel,&result_gsl,&neval,w);
+ // gsl_integration_romberg_free(w);
+// printf("result_gsl = %.5e r = %.5e\n",result_gsl,r);
+
+
+
+  // result = result_gsl;
   result = r;
+  // result = result_gsl;
   return result;
 }
 
@@ -679,26 +820,44 @@ struct Parameters_for_integrand_cluster_counts_mass V;
 
 int write_output_cluster_counts(struct szcount * pcsz, struct tszspectrum * ptsz){
 int i,j;
+
 if (ptsz->sz_verbose > 0){
   double total_counts = 0.;
   for (j=0;j<pcsz->Nbins_z;j++){
+    double N_of_z = 0.;
     if (j== 0) {
-        printf("snr (mid)\t");
-        for (i=0;i<pcsz->Nbins_y+1;i++){
-          printf("y=%.3e\t",pow(10,pcsz->logy[i]));
+        printf("log10(snr)\t",pcsz->Nbins_y);
+        for (i=0;i<pcsz->Nbins_y;i++){
+          printf("%.3e\t",pcsz->logy[i]);
         }
         printf(" ------ \n");
     }
       printf("z=%.3e\t",pcsz->z_center[j]);
-    for (i=0;i<pcsz->Nbins_y+1;i++){
+    for (i=0;i<pcsz->Nbins_y;i++){
+
+      N_of_z += pcsz->dNdzdy_theoretical[j][i];
 
       total_counts += pcsz->dNdzdy_theoretical[j][i];
       printf("%e\t",pcsz->dNdzdy_theoretical[j][i]);
     }
-    printf(" ------ \n");
+    printf(" ------ N_of_z = %.5e\n",N_of_z);
   }
+printf("------------------------------------------------------------\n");
+
+printf("N_of_q = \t");
+for (i=0;i<pcsz->Nbins_y;i++){
+double N_of_q = 0.;
+for (j=0;j<pcsz->Nbins_z;j++){
+  N_of_q  += pcsz->dNdzdy_theoretical[j][i];
+}
+printf("%.5e\t",N_of_q);
+
+}
+printf("\n");
+
+
   if (pcsz->has_completeness == 0)
-    total_counts = total_counts/(pcsz->Nbins_y+1.);
+    total_counts = total_counts/(pcsz->Nbins_y);
 
     printf("total counts = %e\n", total_counts);
 
@@ -715,7 +874,7 @@ if (ptsz->write_sz > 0)
   if(fp == NULL)
     exit(-1);
     int j;
-  for (j=0;j<pcsz->Nbins_y+1;j++){
+  for (j=0;j<pcsz->Nbins_y;j++){
     for (i=0;i<pcsz->Nbins_z;i++){
 
       fprintf(fp,"%e\n",pcsz->dNdzdy_theoretical[i][j]);
@@ -739,7 +898,7 @@ if (ptsz->write_sz > 0)
   if(fp == NULL)
     exit(-1);
 
-    for (i=0;i<pcsz->Nbins_y+1;i++){
+    for (i=0;i<pcsz->Nbins_y;i++){
       fprintf(fp,"%e\n",pow(10.,pcsz->logy[i]));
     }
 
@@ -838,6 +997,14 @@ int initialise_and_allocate_memory_cc(struct tszspectrum * ptsz,struct szcount *
   for (index_m=0; index_m<ptsz->nsteps_m; index_m++){
     ptsz->steps_m[index_m] = pcsz->steps_m[index_m];
   }
+if (ptsz->sz_verbose>3){
+    printf("steps_m [%d]:\n",pcsz->nsteps_m);
+    for (index_m=0;index_m<pcsz->nsteps_m;index_m++){
+
+      printf("%e\n",exp(pcsz->steps_m[index_m]));
+    }
+  }
+
 // printf("nsteps_z=%d\n", 1);
   //grid for redshift
   //# Redshift bin parameters
@@ -845,7 +1012,7 @@ int initialise_and_allocate_memory_cc(struct tszspectrum * ptsz,struct szcount *
   pcsz->z_max = ptsz->bin_z_max_cluster_counts;
   pcsz->dz = ptsz->bin_dz_cluster_counts;
 
-  pcsz->Nbins_z =floor((pcsz->z_max - pcsz->z_0)/pcsz->dz);
+  pcsz->Nbins_z =floor((pcsz->z_max - pcsz->z_0)/pcsz->dz) -1;;
 
 // printf("%d\n",pcsz->Nbins_z);
 // exit(0);
@@ -856,18 +1023,19 @@ int initialise_and_allocate_memory_cc(struct tszspectrum * ptsz,struct szcount *
     //printf("index_z=%d, z_center=%e\n",index_z,z_center[index_z]);
   }
 
-  if(pcsz->z_0==0.) pcsz->z_center[0] += 1.e-5;
+  // if(pcsz->z_0==0.) pcsz->z_center[0] += 1.e-5;
 
   double binz=pcsz->z_center[1]-pcsz->z_center[0];
 
 
-  double z_max = pcsz->z_center[pcsz->Nbins_z-1] + 0.5*pcsz->dz;
-  double z_i = pcsz->z_0;
+  double z_max = pcsz->z_max;//pcsz->z_center[pcsz->Nbins_z-1] + 0.5*pcsz->dz;
+  double z_i = pcsz->z_0 + 0.5*pcsz->dz;
   pcsz->nsteps_z = 0;
-  while (z_i <= z_max) {
+  while (z_i < z_max) {
     z_i = next_z(z_i,binz,ptsz);
     pcsz->nsteps_z += 1;
   }
+  pcsz->nsteps_z += -2;
 
   ptsz->nsteps_z = pcsz->nsteps_z;
 
@@ -882,7 +1050,7 @@ int initialise_and_allocate_memory_cc(struct tszspectrum * ptsz,struct szcount *
               ptsz->nsteps_z*sizeof(double *),
               ptsz->error_message);
 
-  z_i = pcsz->z_0;
+  z_i = pcsz->z_0+ 0.5*pcsz->dz;;
 
   for(index_z = 0; index_z<pcsz->nsteps_z; index_z++){
     pcsz->steps_z[index_z] = z_i;
@@ -895,6 +1063,13 @@ for(index_z = 0; index_z<pcsz->nsteps_z; index_z++)
    ptsz->steps_z[index_z] = pcsz->steps_z[index_z];
   //grid for s/n
 
+if (ptsz->sz_verbose>3){
+    printf("steps_z [%d]:\n",pcsz->nsteps_z);
+    for (index_z=0;index_z<pcsz->nsteps_z;index_z++){
+
+      printf("%e\n",pcsz->steps_z[index_z]);
+    }
+}
   //grid for y
   //# y bin parameters
   //# Logymin corresponds to log10 of S/N_min (5 or 6)
@@ -913,10 +1088,10 @@ else if (ptsz->experiment==1){
   // printf("%d\n",pcsz->Nbins_y);
   //exit(0);
   double * logy;
-  class_alloc(logy,(pcsz->Nbins_y+1)*sizeof(double),pcsz->error_message);
+  class_alloc(logy,(pcsz->Nbins_y)*sizeof(double),pcsz->error_message);
   int index_y;
   double y_i = pcsz->logy_min + pcsz->dlogy/2.;
-  for (index_y = 0; index_y<pcsz->Nbins_y+1; index_y ++){
+  for (index_y = 0; index_y<pcsz->Nbins_y; index_y ++){
     logy[index_y] = y_i;
     y_i += pcsz->dlogy;
     // if (y_i >= 1.5){
@@ -926,12 +1101,13 @@ else if (ptsz->experiment==1){
   }
   // pcsz->Nbins_y = index_y+1;
   // pcsz->Nbins_y = index_y;
-  class_alloc(pcsz->logy,(pcsz->Nbins_y+1)*sizeof(double),pcsz->error_message);
-  for (index_y = 0; index_y<pcsz->Nbins_y+1; index_y ++){
+  class_alloc(pcsz->logy,(pcsz->Nbins_y)*sizeof(double),pcsz->error_message);
+  for (index_y = 0; index_y<pcsz->Nbins_y; index_y ++){
     pcsz->logy[index_y] = logy[index_y];
-
-    // printf("index_y=%d, logy=%e\n",index_y,logy[index_y]);
+if (ptsz->sz_verbose>3){
+    printf("index_y=%d, logy=%e\n",index_y,logy[index_y]);
   }
+}
   // if (pcsz->logy_max <= pcsz->logy[pcsz->Nbins_y-1]){
   //   pcsz->logy_max = pcsz->logy[pcsz->Nbins_y-1] + pcsz->dlogy;
   // }
@@ -979,7 +1155,7 @@ free(logy);
        index_z++)
   {
     class_alloc(pcsz->dNdzdy_theoretical[index_z],
-                (pcsz->Nbins_y+1)*sizeof(double *),
+                (pcsz->Nbins_y)*sizeof(double *),
                 pcsz->error_message);
   }
 
@@ -989,6 +1165,9 @@ free(logy);
 
     return _SUCCESS_;
 }
+
+
+// double get_ylim_at_theta(double thp,)
 
 
 int find_theta_bin(struct tszspectrum * ptsz, double thp, int * l_array, double * theta_array){

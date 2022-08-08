@@ -9,6 +9,7 @@
 #include "gsl/gsl_sf_expint.h"
 #include "gsl/gsl_sf_lambert.h"
 # include <fftw3.h>
+// # include <gsl_integration.h>
 // #include "fft.h"
 
 
@@ -18,6 +19,10 @@
 #define _pk_gg_at_z_2h_ ((ptsz->has_pk_gg_at_z_2h == _TRUE_) && (index_md == ptsz->index_md_pk_gg_at_z_2h))
 #define _pk_bb_at_z_1h_ ((ptsz->has_pk_bb_at_z_1h == _TRUE_) && (index_md == ptsz->index_md_pk_bb_at_z_1h))
 #define _pk_bb_at_z_2h_ ((ptsz->has_pk_bb_at_z_2h == _TRUE_) && (index_md == ptsz->index_md_pk_bb_at_z_2h))
+#define _pk_em_at_z_1h_ ((ptsz->has_pk_em_at_z_1h == _TRUE_) && (index_md == ptsz->index_md_pk_em_at_z_1h))
+#define _pk_em_at_z_2h_ ((ptsz->has_pk_em_at_z_2h == _TRUE_) && (index_md == ptsz->index_md_pk_em_at_z_2h))
+#define _pk_HI_at_z_1h_ ((ptsz->has_pk_HI_at_z_1h == _TRUE_) && (index_md == ptsz->index_md_pk_HI_at_z_1h))
+#define _pk_HI_at_z_2h_ ((ptsz->has_pk_HI_at_z_2h == _TRUE_) && (index_md == ptsz->index_md_pk_HI_at_z_2h))
 #define _bk_at_z_1h_ ((ptsz->has_bk_at_z_1h == _TRUE_) && (index_md == ptsz->index_md_bk_at_z_1h))
 #define _bk_at_z_2h_ ((ptsz->has_bk_at_z_2h == _TRUE_) && (index_md == ptsz->index_md_bk_at_z_2h))
 #define _bk_at_z_3h_ ((ptsz->has_bk_at_z_3h == _TRUE_) && (index_md == ptsz->index_md_bk_at_z_3h))
@@ -83,6 +88,7 @@
 #define _lens_lensmag_hf_ ((ptsz->has_lens_lensmag_hf == _TRUE_) && (index_md == ptsz->index_md_lens_lensmag_hf))
 #define _lens_lens_1h_ ((ptsz->has_lens_lens_1h == _TRUE_) && (index_md == ptsz->index_md_lens_lens_1h))
 #define _lens_lens_2h_ ((ptsz->has_lens_lens_2h == _TRUE_) && (index_md == ptsz->index_md_lens_lens_2h))
+#define _lens_lens_hf_ ((ptsz->has_lens_lens_hf == _TRUE_) && (index_md == ptsz->index_md_lens_lens_hf))
 #define _tSZ_gal_1h_ ((ptsz->has_tSZ_gal_1h == _TRUE_) && (index_md == ptsz->index_md_tSZ_gal_1h))
 #define _tSZ_gal_2h_ ((ptsz->has_tSZ_gal_2h == _TRUE_) && (index_md == ptsz->index_md_tSZ_gal_2h))
 #define _tSZ_cib_1h_ ((ptsz->has_tSZ_cib_1h == _TRUE_) && (index_md == ptsz->index_md_tSZ_cib_1h))
@@ -133,6 +139,9 @@ struct tszspectrum {
   int use_hod; // Eq. 15 or 16 of KA20
   int unwise_galaxy_sample_id;
   int galaxy_sample;
+
+
+  int no_b2;
   //double unwise_m_min_cut;
 
   double sn_cutoff;
@@ -151,6 +160,10 @@ struct tszspectrum {
   double * pk_gg_at_z_2h;
   double * pk_bb_at_z_1h;
   double * pk_bb_at_z_2h;
+  double * pk_em_at_z_1h;
+  double * pk_em_at_z_2h;
+  double * pk_HI_at_z_1h;
+  double * pk_HI_at_z_2h;
   double * bk_at_z_1h;
   double * bk_at_z_2h;
   double * bk_at_z_3h;
@@ -162,6 +175,7 @@ struct tszspectrum {
   double * cl_gal_gal_2h;
   double * cl_gal_gal_hf;
   double * cl_gal_lens_hf;
+  double * cl_lens_lens_hf;
   double * cl_gal_lens_2h;
   double * cl_gal_lens_1h;
   double * cl_gal_lensmag_hf;
@@ -255,6 +269,10 @@ struct tszspectrum {
   int delta_def_electron_pressure;
   int delta_def_electron_density;
 
+
+  int delta_def_HI_pressure;
+  int delta_def_HI_density;
+
   int bispec_conf_id;
 
   double M_min_ng_bar;
@@ -263,6 +281,7 @@ struct tszspectrum {
 
   int index_d_tot;
   int index_phi;
+  int index_psi;
   int number_of_titles;
 
   int need_m200m_to_m200c;
@@ -292,6 +311,7 @@ struct tszspectrum {
 
   int has_electron_pressure;
   int has_electron_density;
+  int has_HI_density;
   int has_galaxy;
   int has_matter_density;
   int has_lensing;
@@ -312,6 +332,7 @@ struct tszspectrum {
 
   int index_has_electron_pressure;
   int index_has_electron_density;
+  int index_has_HI_density;
   int index_has_galaxy;
   int index_has_matter_density;
   int index_has_lensing;
@@ -330,6 +351,7 @@ struct tszspectrum {
   int create_ref_trispectrum_for_cobaya;
 
 
+  int use_m500c_in_ym_relation;
   //int has_sz_te_y_y;
   int has_sz_cov_N_Cl;
 
@@ -372,6 +394,28 @@ struct tszspectrum {
   int index_md_pk_bb_at_z_2h;
   int index_integrand_id_pk_bb_at_z_2h_first;
   int index_integrand_id_pk_bb_at_z_2h_last;
+
+  int has_pk_em_at_z_1h;
+  int index_md_pk_em_at_z_1h;
+  int index_integrand_id_pk_em_at_z_1h_first;
+  int index_integrand_id_pk_em_at_z_1h_last;
+
+  int has_pk_em_at_z_2h;
+  int index_md_pk_em_at_z_2h;
+  int index_integrand_id_pk_em_at_z_2h_first;
+  int index_integrand_id_pk_em_at_z_2h_last;
+
+
+  int has_pk_HI_at_z_1h;
+  int index_md_pk_HI_at_z_1h;
+  int index_integrand_id_pk_HI_at_z_1h_first;
+  int index_integrand_id_pk_HI_at_z_1h_last;
+
+  int has_pk_HI_at_z_2h;
+  int index_md_pk_HI_at_z_2h;
+  int index_integrand_id_pk_HI_at_z_2h_first;
+  int index_integrand_id_pk_HI_at_z_2h_last;
+
 
 
   int has_pk_gg_at_z_1h;
@@ -608,6 +652,11 @@ struct tszspectrum {
   int index_md_gal_lens_hf;
   int index_integrand_id_gal_lens_hf_first;
   int index_integrand_id_gal_lens_hf_last;
+
+  int has_lens_lens_hf;
+  int index_md_lens_lens_hf;
+  int index_integrand_id_lens_lens_hf_first;
+  int index_integrand_id_lens_lens_hf_last;
 
 
   int has_gal_lens_2h;
@@ -882,16 +931,22 @@ struct tszspectrum {
   int  index_mass_for_matter_density;
   int  index_mass_for_electron_pressure;
   int  index_mass_for_electron_density;
+  int  index_mass_for_HI_pressure;
+  int  index_mass_for_HI_density;
   int  index_concentration_for_galaxies;
   int  index_concentration_for_cib;
   int  index_concentration_for_matter_density;
   int  index_concentration_for_electron_pressure;
   int  index_concentration_for_electron_density;
+  int  index_concentration_for_HI_pressure;
+  int  index_concentration_for_HI_density;
   int  index_radius_for_galaxies;
   int  index_radius_for_cib;
   int  index_radius_for_matter_density;
   int  index_radius_for_electron_pressure;
   int  index_radius_for_electron_density;
+  int  index_radius_for_HI_pressure;
+  int  index_radius_for_HI_density;
   int  index_r500c;
   int  index_Rh;
   int  index_mf;
@@ -1307,6 +1362,7 @@ struct tszspectrum {
   double A_ym;
   double B_ym;
   double C_ym;
+  double m_pivot_ym;
 
   double alpha_theta;
   int y_m_relation;
@@ -1419,6 +1475,7 @@ double * steps_m;
   short sz_verbose; /**< flag regulating the amount of information sent to standard output (none if set to zero) */
   short write_sz;  //do we need SZ quatitiies vs redshift? */
 
+  int use_planck_binned_proba;
   double bin_z_min_cluster_counts;
   double bin_z_max_cluster_counts;
   double bin_dz_cluster_counts;
@@ -1511,7 +1568,7 @@ double * steps_m;
 
   int truncate_wrt_rvir;
 
-
+  int no_tt_noise_in_kSZ2X_cov;
 
   double * CM_redshift;
   double * CM_logM;

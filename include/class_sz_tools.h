@@ -453,6 +453,12 @@ double get_f_tinker08_at_nu_and_z(double nu, double z, struct tszspectrum * ptsz
                       double sn,
                       double q);
 
+double erf_compl_nicola(double y,
+                        double sn,
+                        double q,
+                        double ymin,
+                        double ymax);
+
   //coding number count likelihood
   double erf_compl(double y,
                    double sn,
@@ -567,6 +573,10 @@ int tabulate_mean_galaxy_number_density(struct background * pba,
                                         struct nonlinear * pnl,
                                         struct primordial * ppm,
                                         struct tszspectrum * ptsz);
+
+
+double get_HI_density_profile_at_k_M_z(double k_asked, double m_asked, double z_asked, struct tszspectrum * ptsz);
+
 
 double get_gas_density_profile_at_k_M_z(double l_asked,
                                     double m_asked,

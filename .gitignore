@@ -208,3 +208,9 @@ notebooks/test_fisher_advact_des_fb_with_prior.npy
 notebooks/test_fisher.npy
 notebooks/kSZ2g_inverse_fisher_planck_x_unwise_blue_agn_180422.npy
 notebooks/kSZ2g_inverse_fisher_planck_x_unwise_blue_agn_ffree10pc_180422.npy
+class_sz_test_ola.ini
+class_sz_test_mat.ini
+class_sz_test_mat.ini
+sz_auxiliary_files/noise_curves/advact_lensing_noise.dat
+python/dist/classy_sz-2.9.4-py3.8-macosx-10.9-x86_64.egg
+python/classy_sz.egg-info/PKG-INFO
