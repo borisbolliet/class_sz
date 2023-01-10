@@ -3423,6 +3423,11 @@ int input_read_parameters(
      class_read_int("cib_nu0_norm",ptsz->cib_nu0_norm);
      class_read_int("use scale dependent bias (from non Gaussianity)",ptsz->has_ng_in_bh);
      class_read_double("fNL",ptsz->fNL);
+
+     // FMcC edit: read in p_fNL parameter
+     class_read_double("p_fNL",ptsz->p_fNL); 
+     // end FMcC edit
+
      if(ptsz->has_ng_in_bh){
        ppt->has_density_transfers=_TRUE_;
        ppt->has_perturbations = _TRUE_;
@@ -6140,6 +6145,9 @@ int input_default_params(
   ptsz->maniyar_cib_fsub = 0.134; // see https://github.com/abhimaniyar/halomodel_cib_tsz_cibxtsz/blob/master/Cell_cib.py
   ptsz->fNL = 0.;
 
+  // FMcC edit: new parameter p_fNL with default 1
+  ptsz->p_fNL = 1.;
+  // end FMcC edit
   //# Table 1 of https://arxiv.org/pdf/1309.0382.pdf
   ptsz->has_cib_flux_cut  = 0;
   ptsz->cib_Snu_cutoff_list_in_mJy = NULL;

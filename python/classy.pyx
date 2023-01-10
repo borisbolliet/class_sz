@@ -184,7 +184,7 @@ cdef class Class:
         self.only_redo_class_sz = False
         pars_without_fnl= self._pars.copy()
 
-        for param in ['fnl','effective_galaxy_bias','beta_B12']: # you may want to add more params here
+        for param in ['fNL','p_fNL','effective_galaxy_bias','beta_B12']: # you may want to add more params here
             if param in self._pars:
                 pars_without_fnl.pop(param)
 
@@ -192,6 +192,8 @@ cdef class Class:
             self.only_redo_class_sz = True
             if 'fNL' in self._pars:
                 self.tsz.fNL = self._pars['fNL']
+            if 'p_fNL' in self._pars:
+                self.tsz.p_fNL = self._pars['p_fNL']
             if 'effective_galaxy_bias' in self._pars:
                 self.tsz.effective_galaxy_bias= self._pars['effective_galaxy_bias']
             if 'beta_B12' in self._pars:

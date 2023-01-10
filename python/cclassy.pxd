@@ -384,6 +384,8 @@ cdef extern from "class.h":
         # FMcC fnl_class_sz edit: some parameters used in classy.pyx need to be defined here
         double beta_B12
         double effective_galaxy_bias
+        double p_fNL
+        # end FMcC edit
 
     cdef struct szcount:
         double ** dNdzdy_theoretical

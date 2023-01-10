@@ -491,6 +491,9 @@ struct tszspectrum {
   int has_mean_galaxy_bias;
   int has_ng_in_bh;
   double fNL;
+  // FMcC edit: new parameter p_fNL
+  double p_fNL;
+  // end FMcC edit
 
   int has_mean_y;
   int index_md_mean_y;
