@@ -1129,6 +1129,9 @@ struct tszspectrum {
 
 
   double effective_galaxy_bias;
+  // FMcC edit: allow z-dependence for bias
+  double effective_galaxy_bias_z;
+  // end FMcC edit
   int use_bg_eff_in_ksz2g_eff;
 
   int hm_consistency;

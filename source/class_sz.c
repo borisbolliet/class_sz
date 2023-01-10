@@ -8340,7 +8340,10 @@ int evaluate_effective_galaxy_bias(double * pvecback,
   // }
   //
   // else{
-    b = ptsz->effective_galaxy_bias;
+  // FMcC edit: added z-dependence to galaxy bias
+  //  b = ptsz->effective_galaxy_bias;
+    b = ptsz->effective_galaxy_bias +  z * ptsz->effective_galaxy_bias_z;
+  // end FMcC edit
   // }
 
 

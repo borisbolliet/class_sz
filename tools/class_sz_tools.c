@@ -8679,7 +8679,10 @@ if     (((V->ptsz->has_tSZ_gal_1h == _TRUE_) && (index_md == V->ptsz->index_md_t
     bg = get_mean_galaxy_bias_at_z(z,V->ptsz);
   }
   else if (V->ptsz->use_bg_eff_in_ksz2g_eff==1){
-    bg = V->ptsz->effective_galaxy_bias;
+    // FMcC edit: added z-dependence to galaxy bias
+    //bg = V->ptsz->effective_galaxy_bias;
+    bg = V->ptsz->effective_galaxy_bias + z * V->ptsz->effective_galaxy_bias_z;
+    // end FMcC edit
   }
   result *= bg;
 
