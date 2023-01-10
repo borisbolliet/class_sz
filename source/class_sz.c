@@ -8390,7 +8390,11 @@ result = 0.;
   }
 else{
 
- result = exp(pwl_interp_2d(ptsz->nz_ng_bias,
+
+ // FMcC edit: restoring the sign of fNL, as the scale-dep-bias calculation in
+ // class_sz_tools.c removes the sign.
+ //result = exp(pwl_interp_2d(ptsz->nz_ng_bias,
+ result = ptsz->fNL/fabs(ptsz->fNL)*exp(pwl_interp_2d(ptsz->nz_ng_bias,
                           ptsz->nk_ng_bias,
                           ptsz->array_ln_1pz_ng_bias,
                           ptsz->array_ln_k_ng_bias,
@@ -8398,6 +8402,7 @@ else{
                           1,
                           &z,
                           &k))*(bh-1.);
+ // end FMcC edit
 }
 return result;
 }
