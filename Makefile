@@ -19,9 +19,9 @@ vpath .base build
 ########################################################
 
 # your C compiler:
-# CC       = gcc-12
+CC       = gcc
 # on Mac M1:
-CC       = /usr/bin/clang
+#CC       = /usr/bin/clang
 
 #CC       = gcc  -Wunused-variable
 #CC       = icc
@@ -40,16 +40,16 @@ PYTHON ?= python
 #PYTHON ?= /Users/boris/opt/anaconda2/bin/python
 
 # your optimization flag
-#OPTFLAG = -O4 -ffast-math #-march=native
+OPTFLAG = -O4 -ffast-math #-march=native
 # on Mac M1
-OPTFLAG = -O4 -ffast-math #-arch x86_64
+#OPTFLAG = -O4 -ffast-math #-arch x86_64
 #OPTFLAG = -Ofast -ffast-math #-march=native
 #OPTFLAG = -fast
 
 # your openmp flag (comment for compiling without openmp)
-#OMPFLAG   = -fopenmp
+OMPFLAG   = -fopenmp
 # on Mac M1
-OMPFLAG   = -Xclang -fopenmp
+#OMPFLAG   = -Xclang -fopenmp
 #OMPFLAG   = -mp -mp=nonuma -mp=allcores -g
 #OMPFLAG   = -openmp
 
@@ -58,7 +58,7 @@ CCFLAG = -g -fPIC
 LDFLAG = -g -fPIC
 
 #on Mac M1
-LDFLAG += -lomp
+#LDFLAG += -lomp
 
 # leave blank to compile without HyRec, or put path to HyRec directory
 # (with no slash at the end: e.g. hyrec or ../hyrec)

@@ -107,6 +107,9 @@ cdef class Class:
 
     cpdef int computed # Flag to see if classy has already computed with the given pars
     cpdef int allocated # Flag to see if classy structs are allocated already
+    # FMcC fnl_class_sz edit:
+    cpdef int only_redo_class_sz # Flag to see if we should only recompute class_sz 
+    # end FMcC fnl_class_sz edit
     cpdef object _pars # Dictionary of the parameters
     cpdef object ncp   # Keeps track of the structures initialized, in view of cleaning.
 
@@ -141,6 +144,9 @@ cdef class Class:
         cpdef char* dumc
         self.allocated = False
         self.computed = False
+        # FMcC fnl_class_sz edit:
+        self.only_redo_class_sz = False
+        # end FMcC fnl_class_sz edit
         self._pars = {}
         self.fc.size=0
         self.fc.filename = <char*>malloc(sizeof(char)*30)
@@ -173,6 +179,27 @@ cdef class Class:
         if viewdictitems(self._pars) <= viewdictitems(oldpars):
           return # Don't change the computed states, if the new dict was already contained in the previous dict
         self.computed=False
+
+        # FMcC fnl_class_sz edit: we don't want to recompute the whole cosmology when we change certain params
+        self.only_redo_class_sz = False
+        pars_without_fnl= self._pars.copy()
+
+        for param in ['fnl','effective_galaxy_bias','beta_B12']: # you may want to add more params here
+            if param in self._pars:
+                pars_without_fnl.pop(param)
+
+        if viewdictitems(pars_without_fnl) <= viewdictitems(oldpars):
+            self.only_redo_class_sz = True
+            if 'fNL' in self._pars:
+                self.tsz.fNL = self._pars['fNL']
+            if 'effective_galaxy_bias' in self._pars:
+                self.tsz.effective_galaxy_bias= self._pars['effective_galaxy_bias']
+            if 'beta_B12' in self._pars:
+                self.tsz.beta_B12 = self._pars['beta_B12']
+
+        #end  FMcC fnl_class_sz edit
+
+
         return True
 
     def empty(self):
@@ -349,6 +376,10 @@ cdef class Class:
         # the function.
         if self.computed and self.ncp.issuperset(level):
             return
+        # FMcC fnl_class_sz edit: if we only change some parameters, we only recompute class_sz (not the whole cosmo)
+        if self.only_redo_class_sz:
+            level = ["szpowerspectrum"]
+        # end FMcC fnl_class_sz edit
 
         # Check if already allocated to prevent memory leaks
         if self.allocated:

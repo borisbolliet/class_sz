@@ -381,6 +381,10 @@ cdef extern from "class.h":
         double bin_dlog10_snr_last_bin
         double fNL
 
+        # FMcC fnl_class_sz edit: some parameters used in classy.pyx need to be defined here
+        double beta_B12
+        double effective_galaxy_bias
+
     cdef struct szcount:
         double ** dNdzdy_theoretical
         double ystar
