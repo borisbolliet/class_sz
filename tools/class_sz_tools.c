@@ -13243,8 +13243,10 @@ for (index_k=0; index_k<ptsz->nk_ng_bias; index_k++)
   //       exit(0);
   //     }
 
-      double res = fNL*3.*om0*pow(100.*pba->h/c_in_km_per_s/k_in_invMpc,2.)/tk_phi_plus_psi/D_normalized*ptsz->delta_cSZ;
-
+      // FMcC edit: take the absolute value of fNL so this works for fNL<0 (we will restore the sign in class_sz.c)
+      //double res = fNL*3.*om0*pow(100.*pba->h/c_in_km_per_s/k_in_invMpc,2.)/tk_phi_plus_psi/D_normalized*ptsz->delta_cSZ;
+      double res = fabs(fNL)*3.*om0*pow(100.*pba->h/c_in_km_per_s/k_in_invMpc,2.)/tk_phi_plus_psi/D_normalized*ptsz->delta_cSZ;
+      // end FMcC edit
       // ptsz->array_ln_ng_bias_at_z_and_k[index_z_k] = log(fNL*beta_f/alpha_kp);
       // ptsz->array_ln_ng_bias_at_z_and_k[index_z_k] = log(res*tk*D_normalized);
       ptsz->array_ln_ng_bias_at_z_and_k[index_z_k] = log(res);
