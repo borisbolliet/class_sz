@@ -184,7 +184,7 @@ cdef class Class:
         self.only_redo_class_sz = False
         pars_without_fnl= self._pars.copy()
 
-        for param in ['fNL','p_fNL','effective_galaxy_bias','effective_galaxy_bias_z','beta_B12']: # you may want to add more params here
+        for param in ['fNL','p_fNL','effective_galaxy_bias_blue','effective_galaxy_bias_z_blue','effective_galaxy_bias_green','effective_galaxy_bias_z_green','effective_galaxy_bias_red','effective_galaxy_bias_z_red','effective_galaxy_bias','effective_galaxy_bias_z','beta_B12']: # you may want to add more params here
             if param in self._pars:
                 pars_without_fnl.pop(param)
 
@@ -198,6 +198,24 @@ cdef class Class:
                 self.tsz.effective_galaxy_bias= self._pars['effective_galaxy_bias']
             if 'effective_galaxy_bias_z' in self._pars:
                 self.tsz.effective_galaxy_bias_z = self._pars['effective_galaxy_bias_z']
+
+            if 'effective_galaxy_bias_blue' in self._pars:
+                self.tsz.effective_galaxy_bias= self._pars['effective_galaxy_bias_blue']
+            if 'effective_galaxy_bias_z_blue' in self._pars:
+                self.tsz.effective_galaxy_bias_z = self._pars['effective_galaxy_bias_z_blue']
+
+            if 'effective_galaxy_bias_green' in self._pars:
+                self.tsz.effective_galaxy_bias= self._pars['effective_galaxy_bias_green']
+            if 'effective_galaxy_bias_z_green' in self._pars:
+                self.tsz.effective_galaxy_bias_z = self._pars['effective_galaxy_bias_z_green']
+
+            if 'effective_galaxy_bias_red' in self._pars:
+                self.tsz.effective_galaxy_bias= self._pars['effective_galaxy_bias_red']
+            if 'effective_galaxy_bias_z_red' in self._pars:
+                self.tsz.effective_galaxy_bias_z = self._pars['effective_galaxy_bias_z_red']
+
+
+
             if 'beta_B12' in self._pars:
                 self.tsz.beta_B12 = self._pars['beta_B12']
 

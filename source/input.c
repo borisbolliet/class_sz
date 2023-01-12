@@ -2794,6 +2794,28 @@ int input_read_parameters(
         class_read_double("effective_galaxy_bias",ptsz->effective_galaxy_bias);
 	// FMcC edit: added z-dependence to galaxy bias
         class_read_double("effective_galaxy_bias_z",ptsz->effective_galaxy_bias_z);
+
+        // FMcC edit: read a different galaxy bias parameter depending on the dNdz file
+	class_read_string("full_path_to_dndz_gal",ptsz->full_path_to_dndz_gal);
+        if (strstr(ptsz->full_path_to_dndz_gal, "green") != NULL) {
+		class_read_double("effective_galaxy_bias_green",ptsz->effective_galaxy_bias);
+		class_read_double("effective_galaxy_bias_z_green",ptsz->effective_galaxy_bias_z);
+         }
+	else if (strstr(ptsz->full_path_to_dndz_gal, "red") != NULL) {
+                class_read_double("effective_galaxy_bias_red",ptsz->effective_galaxy_bias);
+                class_read_double("effective_galaxy_bias_z_red",ptsz->effective_galaxy_bias_z);
+         }
+	else if (strstr(ptsz->full_path_to_dndz_gal, "blue") != NULL) {
+                class_read_double("effective_galaxy_bias_blue",ptsz->effective_galaxy_bias);
+                class_read_double("effective_galaxy_bias_z_blue",ptsz->effective_galaxy_bias_z);
+         }
+	else
+        {
+            class_read_double("effective_galaxy_bias",ptsz->effective_galaxy_bias);
+	    // FMcC edit: added z-dependence to galaxy bias
+            class_read_double("effective_galaxy_bias_z",ptsz->effective_galaxy_bias_z);
+	    // end FMcC edit
+	 }
 	// end FMcC edit
         class_read_double("use_bg_eff_in_ksz2g_eff",ptsz->use_bg_eff_in_ksz2g_eff);
 
@@ -5468,7 +5490,9 @@ class_read_int("no_tt_noise_in_kSZ2X_cov",ptsz->no_tt_noise_in_kSZ2X_cov);
   //            errmsg);
   // class_read_string("sBBN_file",ppr->sBBN_file);
   class_read_string("ksz_filter_file",ptsz->ksz_filter_file);
-  class_read_string("full_path_to_dndz_gal",ptsz->full_path_to_dndz_gal);
+  // FMcC edit: move this earlier so that we can use it as a flag to switch the galaxy bias input parameter
+  //class_read_string("full_path_to_dndz_gal",ptsz->full_path_to_dndz_gal);
+  // end FMcC edit
   class_read_string("full_path_to_redshift_dependent_M_min",ptsz->full_path_to_redshift_dependent_M_min);
   class_read_string("full_path_to_source_dndz_gal",ptsz->full_path_to_source_dndz_gal);
   // printf("-> File Name: %s\n",ptsz->ksz_filter_file);

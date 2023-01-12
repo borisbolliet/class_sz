@@ -131,7 +131,20 @@
              "Number of entries in %s, %d, does not match expected number, %d.", \
 		name,entries_read,siz);				\
   } while(0);
-
+// FMcC edit: read list of strings
+#define class_read_list_of_strings(name,destination,siz)                        \
+  do {                                                                  \
+    class_call(parser_read_list_of_strings(pfc,name,                    \
+        &entries_read,&(destination),&flag1,errmsg),                    \
+               errmsg,                                                  \
+               errmsg);                                                 \
+    class_test(flag1 == _FALSE_,errmsg,                                 \
+        "Entry %s is required but not found!",name)                     \
+        class_test(entries_read != siz,errmsg,                  \
+             "Number of entries in %s, %d, does not match expected number, %d.", \
+                name,entries_read,siz);                         \
+  } while(0);
+// end FMcC edit
 /**
  * temporary parameters for background fzero function
  */
