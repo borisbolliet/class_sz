@@ -2793,7 +2793,7 @@ int input_read_parameters(
 
         class_read_double("effective_galaxy_bias",ptsz->effective_galaxy_bias);
 	// FMcC edit: added z-dependence to galaxy bias
-        class_read_double("effective_galaxy_bias_z",ptsz->effective_galaxy_bias);
+        class_read_double("effective_galaxy_bias_z",ptsz->effective_galaxy_bias_z);
 	// end FMcC edit
         class_read_double("use_bg_eff_in_ksz2g_eff",ptsz->use_bg_eff_in_ksz2g_eff);
 
