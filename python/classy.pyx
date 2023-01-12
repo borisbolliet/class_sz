@@ -179,12 +179,11 @@ cdef class Class:
         if viewdictitems(self._pars) <= viewdictitems(oldpars):
           return # Don't change the computed states, if the new dict was already contained in the previous dict
         self.computed=False
-
-        # FMcC fnl_class_sz edit: we don't want to recompute the whole cosmology when we change certain params
+        # FMcC edits : to not repeat when we only change some parameters
         self.only_redo_class_sz = False
         pars_without_fnl= self._pars.copy()
 
-        for param in ['fNL','p_fNL','effective_galaxy_bias_blue','effective_galaxy_bias_z_blue','effective_galaxy_bias_green','effective_galaxy_bias_z_green','effective_galaxy_bias_red','effective_galaxy_bias_z_red','effective_galaxy_bias','effective_galaxy_bias_z','beta_B12']: # you may want to add more params here
+        for param in ['fnl','effective_galaxy_bias','effective_galaxy_bias_z','beta_B12']:
             if param in self._pars:
                 pars_without_fnl.pop(param)
 
@@ -192,38 +191,14 @@ cdef class Class:
             self.only_redo_class_sz = True
             if 'fNL' in self._pars:
                 self.tsz.fNL = self._pars['fNL']
-            if 'p_fNL' in self._pars:
-                self.tsz.p_fNL = self._pars['p_fNL']
             if 'effective_galaxy_bias' in self._pars:
                 self.tsz.effective_galaxy_bias= self._pars['effective_galaxy_bias']
             if 'effective_galaxy_bias_z' in self._pars:
-                self.tsz.effective_galaxy_bias_z = self._pars['effective_galaxy_bias_z']
-
-            if 'effective_galaxy_bias_blue' in self._pars:
-                self.tsz.effective_galaxy_bias= self._pars['effective_galaxy_bias_blue']
-            if 'effective_galaxy_bias_z_blue' in self._pars:
-                self.tsz.effective_galaxy_bias_z = self._pars['effective_galaxy_bias_z_blue']
-
-            if 'effective_galaxy_bias_green' in self._pars:
-                self.tsz.effective_galaxy_bias= self._pars['effective_galaxy_bias_green']
-            if 'effective_galaxy_bias_z_green' in self._pars:
-                self.tsz.effective_galaxy_bias_z = self._pars['effective_galaxy_bias_z_green']
-
-            if 'effective_galaxy_bias_red' in self._pars:
-                self.tsz.effective_galaxy_bias= self._pars['effective_galaxy_bias_red']
-            if 'effective_galaxy_bias_z_red' in self._pars:
-                self.tsz.effective_galaxy_bias_z = self._pars['effective_galaxy_bias_z_red']
-
-
-
+                self.tsz.effective_galaxy_bias_z= self._pars['effective_galaxy_bias_z']
             if 'beta_B12' in self._pars:
                 self.tsz.beta_B12 = self._pars['beta_B12']
-
-        #end  FMcC fnl_class_sz edit
-
-
+        # end FMcC edit
         return True
-
     def empty(self):
         self._pars = {}
         self.computed = False
