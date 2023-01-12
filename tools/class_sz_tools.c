@@ -5411,6 +5411,10 @@ if (ptsz->pressure_profile != 0 && ptsz->pressure_profile != 2 )
   free(lnI);
   free(d2lnI);
 
+   if (ptsz->sz_verbose>1)
+   printf("-> pressure profile loaded.\n");
+
+
   return _SUCCESS_;
 }
 
@@ -7116,6 +7120,32 @@ int MF_T08_m500(
               1*sizeof(double),
               ptsz->error_message);
 
+  if (ptsz->no_spline_in_tinker == 1){
+    // printf("interpolating without splines.\n");
+
+    *Ap0 = pwl_value_1d(9,
+                       delta_mean_tab,
+                       A_tab,
+                       delta_mean);
+
+    *a0 = pwl_value_1d(9,
+                       delta_mean_tab,
+                       aa_tab,
+                       delta_mean);
+    *b0 = pwl_value_1d(9,
+                       delta_mean_tab,
+                       b_tab,
+                       delta_mean);
+    *c0 = pwl_value_1d(9,
+                       delta_mean_tab,
+                       c_tab,
+                       delta_mean);
+
+
+  }
+  else{
+
+    // printf("interpolating with splines.\n");
   splint(delta_mean_tab,
          A_tab,
          d2_A_tab,
@@ -7143,6 +7173,9 @@ int MF_T08_m500(
          9,
          delta_mean,
          c0);
+
+  // printf("interpolation done %.5e.\n",c0);
+  }
 
   double alphaT08 =
   pow(10.,-pow(0.75/log10(pow(10.,delta_mean)/75.),1.2));
@@ -15386,6 +15419,13 @@ if (
     )
 return 0;
 
+if (ptsz->sz_verbose>1){
+  printf("Tabulating Lsat.\n");
+  printf("n_nu_L_sat = %d\n",ptsz->n_nu_L_sat);
+  printf("nu_min = %.4e\n",ptsz->freq_min);
+  printf("nu_max = %.4e\n",ptsz->freq_max);
+}
+
 // printf("ptsz->n_nu_L_sat = %d %d\n",ptsz->n_nu_L_sat,ptsz->n_z_psi_b1gt);
 
 class_alloc(ptsz->array_L_sat_at_M_z_nu,sizeof(double *)*ptsz->n_nu_L_sat,ptsz->error_message);
@@ -17967,8 +18007,29 @@ return _SUCCESS_;
 
 
 double get_planck_sigma_at_theta500(double theta500, struct tszspectrum * ptsz){
-  if ((theta500>ptsz->thetas[ptsz->nthetas-1]) || (theta500<ptsz->thetas[0])){
-    return 1e200;
+  double y;
+  int l1,l2;
+  double th1,th2;
+
+  if ((theta500<ptsz->thetas[0])){
+       l1 = 0;
+       l2 = 1;
+       th1 = ptsz->thetas[l1];
+       th2 = ptsz->thetas[l2];
+    double y1 = ptsz->sky_averaged_ylims[l1];
+    double y2 = ptsz->sky_averaged_ylims[l2];
+    double y = y1 + (y2-y1)/(th2-th1)*(theta500-th1);
+    return y;
+  }
+  else if ((theta500>ptsz->thetas[ptsz->nthetas-1])){
+      l1 = ptsz->nthetas - 1;
+      l2 = ptsz->nthetas - 2;
+      th1 = ptsz->thetas[l1];
+      th2 = ptsz->thetas[l2];
+    double y1 = ptsz->sky_averaged_ylims[l1];
+    double y2 = ptsz->sky_averaged_ylims[l2];
+    double y = y1 + (y2-y1)/(th2-th1)*(theta500-th1);
+    return y;
   }
   else{
   return pwl_value_1d(ptsz->nthetas,
@@ -18882,26 +18943,48 @@ double  get_L_sat_at_z_M_nu(double z_asked, double m_asked, double nu_asked, str
   double m = log(m_asked);
   double nu = log(nu_asked);
 
+  // printf("nu asked = %.3e\n",nu_asked);
+  // exit(0);
+
 
   // double z = log(1.+z_asked);
   // double m = log(m_asked);
-   if (z<ptsz->array_z_L_sat[0])
-      z = ptsz->array_z_L_sat[0];
+   if (z<ptsz->array_z_L_sat[0]){
+      // z = ptsz->array_z_L_sat[0];
+      printf("redshift min out of range in Lsat asked %.3e bound %.3e.\n",z,ptsz->array_z_L_sat[0]);
+      exit(0);
+    }
         // printf("dealing with mass conversion in hmf\n");
-   if (z>ptsz->array_z_L_sat[ptsz->n_z_L_sat-1])
-      z =  ptsz->array_z_L_sat[ptsz->n_z_L_sat-1];
+   if (z>ptsz->array_z_L_sat[ptsz->n_z_L_sat-1]){
+      // z =  ptsz->array_z_L_sat[ptsz->n_z_L_sat-1];
 
-   if (m<ptsz->array_m_L_sat[0])
-    m = ptsz->array_m_L_sat[0];
-      // printf("dealing with mass conversion in hmf\n");
-   if (m>ptsz->array_m_L_sat[ptsz->n_m_L_sat-1])
-      m =  ptsz->array_m_L_sat[ptsz->n_m_L_sat-1];
+      printf("redshift max out of range in Lsat asked %.3e bound %.3e.\n",z,ptsz->array_z_L_sat[ptsz->n_z_L_sat-1]);
+      exit(0);
+    }
 
-   if (nu<ptsz->array_nu_L_sat[0])
-    nu = ptsz->array_nu_L_sat[0];
+   if (m<ptsz->array_m_L_sat[0]){
+    // m = ptsz->array_m_L_sat[0];
+      printf("mass min out of range in Lsat asked %.3e bound %.3e.\n",m,ptsz->array_m_L_sat[0]);
+      exit(0);
+  }
       // printf("dealing with mass conversion in hmf\n");
-   if (nu>ptsz->array_nu_L_sat[ptsz->n_nu_L_sat-1])
-      nu =  ptsz->array_nu_L_sat[ptsz->n_nu_L_sat-1];
+   if (m>ptsz->array_m_L_sat[ptsz->n_m_L_sat-1]){
+      // m =  ptsz->array_m_L_sat[ptsz->n_m_L_sat-1];
+      printf("mass max out of range in Lsat asked %.3e bound %.3e.\n",m,ptsz->array_m_L_sat[ptsz->n_m_L_sat-1]);
+      exit(0);
+    }
+
+   if (nu<ptsz->array_nu_L_sat[0]){
+    // nu = ptsz->array_nu_L_sat[0];
+      printf("freq min out of range in Lsat asked %.8e bound %.8e.\n",exp(nu),exp(ptsz->array_nu_L_sat[0]));
+      exit(0);
+  }
+      // printf("dealing with mass conversion in hmf\n");
+   if (nu>ptsz->array_nu_L_sat[ptsz->n_nu_L_sat-1]){
+      // nu =  ptsz->array_nu_L_sat[ptsz->n_nu_L_sat-1];
+      printf("freq max out of range in Lsat asked %.3e bound %.3e.\n",exp(nu),exp(ptsz->array_nu_L_sat[ptsz->n_nu_L_sat-1]));
+      exit(0);
+    }
 
   // if (ptsz->tau_profile == 1){
   // find the closest l's in the grid:
@@ -18944,7 +19027,7 @@ double  get_L_sat_at_z_M_nu(double z_asked, double m_asked, double nu_asked, str
 
 
 
-
+// not used :
 double get_L_sat_at_z_and_M_at_nu(double z_asked,
                                   double m_asked,
                                   int index_nu,

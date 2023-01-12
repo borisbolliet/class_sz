@@ -22,10 +22,11 @@ import itertools
 
 import pyccl as ccl
 
-do_ccl_comparison = 'yes'
+# do_ccl_comparison = 'yes'
+do_ccl_comparison = 'no'
 # path_to_ccl = '/Users/boris/Work/CCL/'
-freq_cib_1 = 857.
-freq_cib_2 = 857.
+freq_cib_1 = 545.
+freq_cib_2 = 545.
 # table 1 of https://arxiv.org/pdf/1309.0382.pdf
 #1: freq GHz 2: Flux cut mJy
 # 100 - 400
@@ -217,7 +218,7 @@ def run(args):
 
     # HOD parameters for CIB
     p_dict['M_min_HOD'] = pow(10.,10)
-    p_dict['M1_prime_HOD'] =pow(10.,12.51536196)*p_dict['h']
+    p_dict['M1_prime_HOD'] =pow(10.,125.1536196)*p_dict['h']
 
 
 
@@ -276,6 +277,16 @@ def run(args):
     p_dict['dlogell'] = 0.4
     p_dict['ell_max'] = 5000.
     p_dict['ell_min'] = 2.
+
+
+
+    p_dict['pressure profile'] = 'Custom. GNFW'
+    p_dict['P0GNFW']  = 6.41
+    p_dict['c500']  = 1.81
+    p_dict['gammaGNFW']  = 0.31
+    p_dict['alphaGNFW']  = 1.33
+    p_dict['betaGNFW']  = 4.13
+    p_dict['B'] = 1.25
 
 
 
@@ -466,13 +477,13 @@ def run(args):
             elif (args.plot_tSZ_cib == 'yes'):
                 print(tSZ_cib_1h[id_p])
                 print(tSZ_cib_2h[id_p])
-                ax.plot(multipoles[id_p],(tSZ_cib_2h[id_p]),color='r',ls='--',alpha = 1.,
+                ax.plot(multipoles[id_p],(tSZ_cib_2h[id_p])*1e-6,color='r',ls='--',alpha = 1.,
                 marker =  'o',markersize = 2,
                 label = 'class_sz (2-halo)')
-                ax.plot(multipoles[id_p],(tSZ_cib_1h[id_p]),color='k',ls='--',alpha = 1.,
+                ax.plot(multipoles[id_p],(tSZ_cib_1h[id_p])*1e-6,color='k',ls='--',alpha = 1.,
                 marker =  '*',markersize = 1,
                 label = 'class_sz (1-halo)')
-                ax.plot(multipoles[id_p],(tSZ_cib_1h[id_p]+tSZ_cib_2h[id_p]),color='grey',ls='-',alpha = 1.,
+                ax.plot(multipoles[id_p],(tSZ_cib_1h[id_p]+tSZ_cib_2h[id_p])*1e-6,color='grey',ls='-',alpha = 1.,
                 marker =  '*',markersize = 1,
                 label = 'class_sz (1+2-halo)')
 

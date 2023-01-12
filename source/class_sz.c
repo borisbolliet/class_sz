@@ -9521,6 +9521,7 @@ pvectsz[ptsz->index_lognu] = log(get_nu_at_z_and_m(exp(z_asked)-1.,m_for_hmf,pts
                       ptsz->error_message,
                       ptsz->error_message
                       );
+    // exit(0);
    }
 
 
@@ -14794,6 +14795,8 @@ if (S_nu*1e3 > ptsz->cib_Snu_cutoff_list_in_mJy[index_nu]){
 }
 else if(_cib_monopole_){
 nu = ptsz->frequencies_for_cib[index_nu];
+// printf("nu = %.8e\n",nu);
+// exit(0);
 Lc_nu = Luminosity_of_central_galaxies(z,M_halo,nu/(1.+ptsz->z_obs_cib),pvectsz,ptsz,pba);
 Ls_nu = get_L_sat_at_z_M_nu(z,M_halo,nu/(1.+ptsz->z_obs_cib),ptsz);
 us = 1.;
@@ -14829,7 +14832,8 @@ if (S_nu*1e3 > ptsz->cib_Snu_cutoff_list_in_mJy[index_nu]){
 }
 // cross terms
 else {
-nu = ptsz->frequencies_for_cib[index_nu];
+// nu = ptsz->frequencies_for_cib[index_nu];
+nu = ptsz->cib_frequency_list[index_nu];
 Lc_nu = Luminosity_of_central_galaxies(z,M_halo,nu,pvectsz,ptsz,pba);
 Ls_nu = get_L_sat_at_z_M_nu(z,M_halo,nu,ptsz);
 if (ptsz->has_cib_flux_cut == 1){
@@ -15298,7 +15302,7 @@ double evaluate_truncated_nfw_profile(//double * pvecback,
 {
 
 //double z = pvectsz[ptsz->index_z];
-
+// c_delta = 5.;
 double q = k*r_delta/c_delta*(1.+z); // uk -> 1 when q->0
 double denominator = m_nfw(xout*c_delta); //normalization
 
