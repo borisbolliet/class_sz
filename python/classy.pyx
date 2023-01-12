@@ -474,6 +474,21 @@ cdef class Class:
         # following functions are only to output the desired numbers
         return
 
+    def compute_class_sz(self,pdict_to_update):
+        for k,v in pdict_to_update.items():
+          if k == 'fNL':
+            self.tsz.fNL = pdict_to_update['fNL']
+
+        if szpowerspectrum_init(&(self.ba), &(self.th), &(self.pt), &(self.nl), &(self.pm),
+        &(self.sp),&(self.le),&(self.tsz),&(self.pr)) == _FAILURE_:
+            self.struct_cleanup()
+            raise CosmoComputationError(self.tsz.error_message)
+        self.computed = True
+        return
+
+
+
+
     def raw_cl(self, lmax=-1, nofail=False):
         """
         raw_cl(lmax=-1, nofail=False)
@@ -1016,7 +1031,7 @@ cdef class Class:
         return pk_at_k_z, k, z
 
     # Gives sigma(R,z) for a given (R,z)
-    def sigma(self,double R,double z):
+    def sigma(self,double R,double z, h_units = False):
         """
         Gives sigma (total matter) for a given R and z
         (R is the radius in units of Mpc, so if R=8/h this will be the usual sigma8(z)
@@ -1107,6 +1122,44 @@ cdef class Class:
                  raise CosmoSevereError(self.sp.error_message)
 
         return window_nfw
+
+
+    #################################
+    # gives an estimation of f(z)*sigma8(z) at the scale of 8 h/Mpc, computed as (d sigma8/d ln a)
+    def effective_f_sigma8(self, z, z_step=0.1):
+        """
+        effective_f_sigma8(z)
+
+        Returns the time derivative of sigma8(z) computed as (d sigma8/d ln a)
+
+        Parameters
+        ----------
+        z : float
+                Desired redshift
+        z_step : float
+                Default step used for the numerical two-sided derivative. For z < z_step the step is reduced progressively down to z_step/10 while sticking to a double-sided derivative. For z< z_step/10 a single-sided derivative is used instead.
+
+        Returns
+        -------
+        (d ln sigma8/d ln a)(z) (dimensionless)
+        """
+
+        # we need d sigma8/d ln a = - (d sigma8/dz)*(1+z)
+
+        # if possible, use two-sided derivative with default value of z_step
+        if z >= z_step:
+            return (self.sigma(8/self.h(),z-z_step,h_units=True)-self.sigma(8/self.h(),z+z_step,h_units=True))/(2.*z_step)*(1+z)
+        else:
+            # if z is between z_step/10 and z_step, reduce z_step to z, and then stick to two-sided derivative
+            if (z > z_step/10.):
+                z_step = z
+                return (self.sigma(8/self.h(),z-z_step,h_units=True)-self.sigma(8/self.h(),z+z_step,h_units=True))/(2.*z_step)*(1+z)
+            # if z is between 0 and z_step/10, use single-sided derivative with z_step/10
+            else:
+                z_step /=10
+                return (self.sigma(8/self.h(),z,h_units=True)-self.sigma(8/self.h(),z+z_step,h_units=True))/z_step*(1+z)
+
+
 
     def age(self):
         self.compute(["background"])
@@ -1770,6 +1823,22 @@ cdef class Class:
             cl['k'].append(self.tsz.k_for_pk_hm[index])
         return cl
 
+    def b_yyy(self):
+        """
+        (class_sz) Return the 1-halo, 2-halo and 3-halo terms of tsz bispectrum
+        """
+        cl = {}
+        cl['ell'] = []
+        cl['1h'] = []
+        cl['2h'] = []
+        cl['3h'] = []
+        for index in range(self.tsz.nlSZ):
+            cl['1h'].append(self.tsz.b_tSZ_tSZ_tSZ_1halo[index])
+            cl['2h'].append(self.tsz.b_tSZ_tSZ_tSZ_2h[index])
+            cl['3h'].append(self.tsz.b_tSZ_tSZ_tSZ_3h[index])
+            cl['ell'].append(self.tsz.ell[index])
+        return cl
+
     def pk_gg_at_z_hm(self):
         """
         (class_sz) Return the 1-halo and 2-halo terms of 3d P(k) gg power spectrum
@@ -1838,6 +1907,19 @@ cdef class Class:
         for index in range(self.tsz.n_frequencies_for_cib):
             cl['nu'].append(self.tsz.frequencies_for_cib[index])
             cl['I0'].append(self.tsz.cib_monopole[index])
+        return cl
+
+    def cib_shotnoise(self):
+        """
+        (class_sz) Return the cib shotnoise as a function of frequency
+        """
+        cl = {}
+        cl['nu'] = []
+        cl['shotnoise'] = []
+        for id_nu1 in range(self.tsz.cib_frequency_list_num):
+            nu1 = self.tsz.cib_frequency_list[id_nu1]
+            cl['nu'].append(nu1)
+            cl['shotnoise'].append(self.tsz.cib_shotnoise[id_nu1])
         return cl
 
     def cl_cib_cib(self):
@@ -2560,6 +2642,8 @@ cdef class Class:
     def get_1e6xdy_from_gnfw_pressure_at_x_z_and_m500c(self,z,m,x):
         return get_1e6xdy_from_gnfw_pressure_at_x_z_and_m500c(z,m,x,&self.ba,&self.tsz)
 
+    def szunbinned_loglike(self):
+        return self.tsz.szunbinned_loglike
 
     def dndzdy_theoretical(self):
         """
@@ -2577,7 +2661,7 @@ cdef class Class:
             z_center.append(self.csz.z_center[index_z])
             z_edges.append(self.csz.z_center[index_z]-0.5*self.csz.dz)
             dndzdy_index_z = []
-            for index_y in range(self.csz.Nbins_y +1):
+            for index_y in range(self.csz.Nbins_y):
                 dndzdy_index_z.append(self.csz.dNdzdy_theoretical[index_z][index_y])
             dndzdy.append(dndzdy_index_z)
 
@@ -2586,9 +2670,9 @@ cdef class Class:
         for index_y in range(self.csz.Nbins_y):
             log10y_center.append(self.csz.logy[index_y])
             log10y_edges.append(self.csz.logy[index_y]-0.5*self.csz.dlogy)
-        log10y_center.append(self.csz.logy[self.csz.Nbins_y])
-        log10y_edges.append(self.csz.logy[self.csz.Nbins_y]-0.5*self.tsz.bin_dlog10_snr_last_bin)
-        log10y_edges.append(self.csz.logy[self.csz.Nbins_y]+0.5*self.tsz.bin_dlog10_snr_last_bin)
+        #log10y_center.append(self.csz.logy[self.csz.Nbins_y-1])
+        #log10y_edges.append(self.csz.logy[self.csz.Nbins_y-1]-0.5*self.tsz.bin_dlog10_snr_last_bin)
+        log10y_edges.append(self.csz.logy[self.csz.Nbins_y-1]+0.5*self.csz.dlogy)
         return {'dndzdy':dndzdy,'z_center':z_center,'z_edges':z_edges,'log10y_center':log10y_center,'log10y_edges':log10y_edges}
 
 

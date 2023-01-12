@@ -33,6 +33,7 @@
 //#define _bk_at_z_hf_ ((ptsz->has_bk_at_z_hf == _TRUE_) && (index_md == ptsz->index_md_bk_at_z_hf))
 #define _mean_y_ ((ptsz->has_mean_y == _TRUE_) && (index_md == ptsz->index_md_mean_y))
 #define _cib_monopole_ ((ptsz->has_cib_monopole == _TRUE_) && (index_md == ptsz->index_md_cib_monopole))
+#define _cib_shotnoise_ ((ptsz->has_cib_shotnoise == _TRUE_) && (index_md == ptsz->index_md_cib_shotnoise))
 #define _dcib0dz_ ((ptsz->has_dcib0dz == _TRUE_) && (index_md == ptsz->index_md_dcib0dz))
 #define _dydz_ ((ptsz->has_dydz == _TRUE_) && (index_md == ptsz->index_md_dydz))
 #define _hmf_ ((ptsz->has_hmf == _TRUE_) && (index_md == ptsz->index_md_hmf))
@@ -65,6 +66,7 @@
 #define _kSZ_kSZ_lensmag_1halo_ ((ptsz->has_kSZ_kSZ_lensmag_1halo == _TRUE_) && (index_md == ptsz->index_md_kSZ_kSZ_lensmag_1halo))
 #define _gal_gal_1h_ ((ptsz->has_gal_gal_1h == _TRUE_) && (index_md == ptsz->index_md_gal_gal_1h))
 #define _gal_gal_2h_ ((ptsz->has_gal_gal_2h == _TRUE_) && (index_md == ptsz->index_md_gal_gal_2h))
+#define _n5k_ ((ptsz->has_n5k == _TRUE_) && (index_md == ptsz->index_md_n5k))
 #define _gal_gal_hf_ ((ptsz->has_gal_gal_hf == _TRUE_) && (index_md == ptsz->index_md_gal_gal_hf))
 #define _gal_lens_2h_ ((ptsz->has_gal_lens_2h == _TRUE_) && (index_md == ptsz->index_md_gal_lens_2h))
 #define _gal_lens_hf_ ((ptsz->has_gal_lens_hf == _TRUE_) && (index_md == ptsz->index_md_gal_lens_hf))
@@ -105,14 +107,15 @@
 #define _isw_tsz_ ((ptsz->has_isw_tsz == _TRUE_) && (index_md == ptsz->index_md_isw_tsz))
 #define _isw_auto_ ((ptsz->has_isw_auto == _TRUE_) && (index_md == ptsz->index_md_isw_auto))
 #define _dndlnM_ ((ptsz->has_dndlnM == _TRUE_) && (index_md == ptsz->index_md_dndlnM))
-#define _tSZ_tSZ_tSZ_1halo_ ((ptsz->has_tSZ_tSZ_tSZ_1halo == _TRUE_) && (index_md == ptsz->index_md_tSZ_tSZ_tSZ_1halo))
+#define _szrates_ ((ptsz->has_sz_rates == _TRUE_) && (index_md == ptsz->index_md_szrates))
 #define _kSZ_kSZ_1h_ ((ptsz->has_kSZ_kSZ_1h == _TRUE_) && (index_md == ptsz->index_md_kSZ_kSZ_1h))
 #define _kSZ_kSZ_2h_ ((ptsz->has_kSZ_kSZ_2h == _TRUE_) && (index_md == ptsz->index_md_kSZ_kSZ_2h))
 #define _kSZ_kSZ_tSZ_1h_ ((ptsz->has_kSZ_kSZ_tSZ_1h == _TRUE_) && (index_md == ptsz->index_md_kSZ_kSZ_tSZ_1h))
 #define _kSZ_kSZ_tSZ_2h_ ((ptsz->has_kSZ_kSZ_tSZ_2h == _TRUE_) && (index_md == ptsz->index_md_kSZ_kSZ_tSZ_2h))
 #define _kSZ_kSZ_tSZ_3h_ ((ptsz->has_kSZ_kSZ_tSZ_3h == _TRUE_) && (index_md == ptsz->index_md_kSZ_kSZ_tSZ_3h))
-
-
+#define _tSZ_tSZ_tSZ_1halo_ ((ptsz->has_tSZ_tSZ_tSZ_1halo == _TRUE_) && (index_md == ptsz->index_md_tSZ_tSZ_tSZ_1halo))
+#define _tSZ_tSZ_tSZ_2h_ ((ptsz->has_tSZ_tSZ_tSZ_2h == _TRUE_) && (index_md == ptsz->index_md_tSZ_tSZ_tSZ_2h))
+#define _tSZ_tSZ_tSZ_3h_ ((ptsz->has_tSZ_tSZ_tSZ_3h == _TRUE_) && (index_md == ptsz->index_md_tSZ_tSZ_tSZ_3h))
 //#define _tSZ_trispectrum_ ((ptsz->has_sz_trispec == _TRUE_))
 //#define _tSZ_2halo_ ((ptsz->has_sz_2halo == _TRUE_))
 //#define _tSZ_te_y_y_ ((ptsz->has_sz_te_y_y == _TRUE_))
@@ -144,9 +147,12 @@ struct tszspectrum {
   int no_b2;
   //double unwise_m_min_cut;
 
+  int cib_nu0_norm;
   double sn_cutoff;
 
   double f_sky;
+  double fsky_from_skyfracs;
+  double szunbinned_loglike;
   double Omega_survey;
 
   double chi_star; //comoving distance to the surface of last scattering [Mpc/h]
@@ -154,6 +160,7 @@ struct tszspectrum {
   double hmf_int;
   double y_monopole;
   double * cib_monopole;
+  double * cib_shotnoise;
   double * pk_at_z_1h;
   double * pk_at_z_2h;
   double * pk_gg_at_z_1h;
@@ -212,6 +219,7 @@ struct tszspectrum {
   double ** cl_lens_cib_2h;
   double * cl_tSZ_lens_1h;
   double * cl_tSZ_lens_2h;
+  double * szrate;
   double * cl_isw_lens;
   double * cl_isw_tsz;
   double * cl_isw_auto;
@@ -239,6 +247,8 @@ struct tszspectrum {
   double * cl_kSZ_kSZ_gal_hf;
   double * cl_kSZ_kSZ_lensmag_1h;
   double * b_tSZ_tSZ_tSZ_1halo;
+  double * b_tSZ_tSZ_tSZ_2h;
+  double * b_tSZ_tSZ_tSZ_3h;
   double * cl_kSZ_kSZ_1h;
   double * cl_kSZ_kSZ_2h;
   double * b_kSZ_kSZ_tSZ_1h;
@@ -380,6 +390,11 @@ struct tszspectrum {
   int index_integrand_id_cov_N_N_hsv_first;
   int index_integrand_id_cov_N_N_hsv_last;
 
+
+  int has_sz_rates;
+  int index_md_szrates;
+  int index_integrand_id_szrates_first;
+  int index_integrand_id_szrates_last;
 
   int has_hmf;
   int index_md_hmf;
@@ -596,10 +611,7 @@ struct tszspectrum {
   int index_integrand_id_kSZ_kSZ_lensmag_1halo_last;
 
 
-  int has_tSZ_tSZ_tSZ_1halo;
-  int index_md_tSZ_tSZ_tSZ_1halo;
-  int index_integrand_id_tSZ_tSZ_tSZ_1halo_first;
-  int index_integrand_id_tSZ_tSZ_tSZ_1halo_last;
+
 
   int has_kSZ_kSZ_1h;
   int index_md_kSZ_kSZ_1h;
@@ -627,6 +639,22 @@ struct tszspectrum {
   int index_integrand_id_kSZ_kSZ_tSZ_3h_first;
   int index_integrand_id_kSZ_kSZ_tSZ_3h_last;
 
+  int has_tSZ_tSZ_tSZ_1halo;
+  int index_md_tSZ_tSZ_tSZ_1halo;
+  int index_integrand_id_tSZ_tSZ_tSZ_1halo_first;
+  int index_integrand_id_tSZ_tSZ_tSZ_1halo_last;
+
+  int has_tSZ_tSZ_tSZ_2h;
+  int index_md_tSZ_tSZ_tSZ_2h;
+  int index_integrand_id_tSZ_tSZ_tSZ_2h_first;
+  int index_integrand_id_tSZ_tSZ_tSZ_2h_last;
+
+  int has_tSZ_tSZ_tSZ_3h;
+  int index_md_tSZ_tSZ_tSZ_3h;
+  int index_integrand_id_tSZ_tSZ_tSZ_3h_first;
+  int index_integrand_id_tSZ_tSZ_tSZ_3h_last;
+
+
 
   int has_tSZ_lens_1h;
   int index_md_tSZ_lens_1h;
@@ -647,6 +675,9 @@ struct tszspectrum {
   int index_md_gal_gal_hf;
   int index_integrand_id_gal_gal_hf_first;
   int index_integrand_id_gal_gal_hf_last;
+
+  int has_n5k;
+  int index_md_n5k;
 
   int has_gal_lens_hf;
   int index_md_gal_lens_hf;
@@ -818,6 +849,12 @@ struct tszspectrum {
   int index_integrand_id_cib_monopole_first;
   int index_integrand_id_cib_monopole_last;
 
+  int has_cib_shotnoise;
+  int index_md_cib_shotnoise;
+  int index_integrand_id_cib_shotnoise_first;
+  int index_integrand_id_cib_shotnoise_last;
+
+
   int has_cib_cib_1h;
   int index_md_cib_cib_1h;
   int index_integrand_id_cib_cib_1h_first;
@@ -962,6 +999,7 @@ struct tszspectrum {
   int  index_characteristic_multipole_for_nfw_profile;
   int  index_r200c;
   int  index_multipole;
+  int  index_szrate;
   int  index_multipole_prime;
   int  index_mass_bin_1;
   int  index_mass_bin_2;
@@ -1117,6 +1155,10 @@ struct tszspectrum {
   double ** ylims;
   double * sky_averaged_ylims;
 
+  //SZ catalog
+  double * szcat_z;
+  double * szcat_snr;
+  int  szcat_size;
 
   double shape_noise_siggamma2;
   double ns_gal_per_arcmin2;
@@ -1368,6 +1410,12 @@ struct tszspectrum {
   int y_m_relation;
   double thetastar;
 
+  int use_maniyar_cib_model;
+  double maniyar_cib_tau;
+  double maniyar_cib_zc;
+  double maniyar_cib_etamax;
+  double maniyar_cib_fsub;
+
   //BB: added for class_sz
   int ln_k_size_for_tSZ;
   double k_per_decade_for_tSZ;
@@ -1459,6 +1507,7 @@ double * steps_m;
   double D_z1SZ;
   double Omega_m_0;
   double Omega_ncdm_0;
+  double Omega0_b;
 
   double bispectrum_lambda_k2;
   double bispectrum_lambda_k3;
@@ -1660,6 +1709,32 @@ double * steps_m;
   double * array_hmf_counter_terms_b1min;
   double * array_hmf_counter_terms_b2min;
   ErrorMsg error_message; /**< zone for writing error messages */
+
+
+  double * array_n5k_F1_F;
+  double * array_n5k_F1_k;
+  int * array_n5k_F1_l;
+
+  double * n5k_pk_z;
+  double * n5k_pk_k;
+  double * n5k_pk_pk;
+  int n5k_pk_z_size;
+  int n5k_pk_k_size;
+
+
+  double * cib_Snu_z;
+  double * cib_Snu_nu;
+  double * cib_Snu_snu;
+  int cib_Snu_z_size;
+  int cib_Snu_nu_size;
+
+  double * n5k_cl_K1_K1;
+  double * n5k_cl_K1_chi;
+  int n5k_cl_K1_size;
+
+  double * n5k_z_of_chi_z;
+  double * n5k_z_of_chi_chi;
+  int n5k_z_of_chi_size;
 
 
   double * array_psi_b2t_redshift;
@@ -2130,6 +2205,7 @@ double Luminosity_of_satellite_galaxies(double z,
                                         struct tszspectrum * ptsz,
                                         struct background * pba);
 
+double maniyar_cib_Mdot(double M, double z, struct tszspectrum * ptsz);
 double evaluate_Sigma_cib(double M, struct tszspectrum * ptsz);
 double evaluate_phi_cib(double z, struct tszspectrum * ptsz);
 double evaluate_sed_cib(double z, double nu, struct tszspectrum * ptsz);

@@ -1759,7 +1759,8 @@ int input_read_parameters(
       //Redshift limits for the integration
       class_read_double("z_min",ptsz->z1SZ);
       class_read_double("z_max",ptsz->z2SZ);
-
+      ptsz->z1SZ_dndlnM = ptsz->z1SZ;
+      ptsz->z2SZ_dndlnM = ptsz->z2SZ;
 
 
       class_read_double("redshift_epsrel",ptsz->redshift_epsrel);
@@ -1785,8 +1786,7 @@ int input_read_parameters(
       class_read_double("M_max",ptsz->M2SZ);
       ptsz->M1SZ_dndlnM = ptsz->M1SZ;
       ptsz->M2SZ_dndlnM = ptsz->M2SZ;
-      ptsz->z1SZ_dndlnM = ptsz->z1SZ;
-      ptsz->z2SZ_dndlnM = ptsz->z2SZ;
+
 
       ptsz->M_min_ng_bar = ptsz->M1SZ;
       ptsz->M_max_ng_bar = ptsz->M2SZ;
@@ -1856,6 +1856,8 @@ int input_read_parameters(
       class_read_int("use_m500c_in_ym_relation",ptsz->use_m500c_in_ym_relation);
       class_read_int("mass_range",pcsz->mass_range);
 
+
+      class_read_int("use_maniyar_cib_model",ptsz->use_maniyar_cib_model);
 
       class_read_int("y_m_relation",ptsz->y_m_relation);
       class_read_double("ystar",pcsz->ystar);
@@ -2091,6 +2093,7 @@ int input_read_parameters(
         pnl->has_pk_cb = _TRUE_;
         pnl->has_pk_m = _TRUE_;
         ptsz->need_hmf = 1;
+        // ptsz->has_completeness_for_ps_SZ = 1;
       }
       if ((strstr(string1,"mean_y") != NULL) ) {
         ptsz->has_mean_y =_TRUE_;
@@ -2604,15 +2607,6 @@ int input_read_parameters(
       }
 
 
-      if ((strstr(string1,"tSZ_tSZ_tSZ_1h") != NULL) ) {
-        ptsz->has_tSZ_tSZ_tSZ_1halo =_TRUE_;
-        ppt->has_density_transfers=_TRUE_;
-        ppt->has_pk_matter = _TRUE_;
-        ppt->has_perturbations = _TRUE_;
-        pnl->has_pk_cb = _TRUE_;
-        pnl->has_pk_m = _TRUE_;
-        ptsz->need_hmf = 1;
-      }
 
       if ((strstr(string1,"kSZ_kSZ_1h") != NULL) ) {
         ptsz->has_kSZ_kSZ_1h =_TRUE_;
@@ -2666,6 +2660,36 @@ int input_read_parameters(
         ptsz->has_vrms2 = _TRUE_;
       }
 
+      if ((strstr(string1,"tSZ_tSZ_tSZ_1h") != NULL) ) {
+        ptsz->has_tSZ_tSZ_tSZ_1halo =_TRUE_;
+        ppt->has_density_transfers=_TRUE_;
+        ppt->has_pk_matter = _TRUE_;
+        ppt->has_perturbations = _TRUE_;
+        pnl->has_pk_cb = _TRUE_;
+        pnl->has_pk_m = _TRUE_;
+        ptsz->need_hmf = 1;
+      }
+      if ((strstr(string1,"tSZ_tSZ_tSZ_2h") != NULL) ) {
+        ptsz->has_tSZ_tSZ_tSZ_2h =_TRUE_;
+        ppt->has_density_transfers=_TRUE_;
+        ppt->has_pk_matter = _TRUE_;
+        ppt->has_perturbations = _TRUE_;
+        pnl->has_pk_cb = _TRUE_;
+        pnl->has_pk_m = _TRUE_;
+        ptsz->need_hmf = 1;
+      }
+      if ((strstr(string1,"tSZ_tSZ_tSZ_3h") != NULL) ) {
+        ptsz->has_tSZ_tSZ_tSZ_3h =_TRUE_;
+        ppt->has_density_transfers=_TRUE_;
+        ppt->has_pk_matter = _TRUE_;
+        ppt->has_perturbations = _TRUE_;
+        pnl->has_pk_cb = _TRUE_;
+        pnl->has_pk_m = _TRUE_;
+        ptsz->need_hmf = 1;
+      }
+
+
+
       if ((strstr(string1,"cib_cib_1h") != NULL) ) {
         ptsz->has_cib_cib_1h =_TRUE_;
         ppt->has_density_transfers=_TRUE_;
@@ -2684,6 +2708,16 @@ int input_read_parameters(
         pnl->has_pk_m = _TRUE_;
         ptsz->need_hmf = 1;
       }
+      if ((strstr(string1,"cib_shotnoise") != NULL) ) {
+        ptsz->has_cib_shotnoise =_TRUE_;
+        ppt->has_density_transfers=_TRUE_;
+        ppt->has_pk_matter = _TRUE_;
+        ppt->has_perturbations = _TRUE_;
+        pnl->has_pk_cb = _TRUE_;
+        pnl->has_pk_m = _TRUE_;
+        ptsz->need_hmf = 1;
+      }
+
       if ((strstr(string1,"dcib0dz") != NULL) ) {
         ptsz->has_dcib0dz =_TRUE_;
         ppt->has_density_transfers=_TRUE_;
@@ -3190,6 +3224,22 @@ int input_read_parameters(
 
       }
 
+      if ((strstr(string1,"sz_unbinned_cluster_counts") != NULL) ) {
+        // printf("counts\n");
+        ptsz->has_sz_counts =_TRUE_;
+        ptsz->has_sz_rates =_TRUE_;
+        ptsz->has_hmf =_TRUE_;
+        ppt->has_density_transfers=_TRUE_;
+        ppt->has_pk_matter = _TRUE_;
+        ppt->has_perturbations = _TRUE_;
+        pnl->has_pk_cb = _TRUE_;
+        pnl->has_pk_m = _TRUE_;
+        ptsz->need_hmf = 1;
+        ptsz->has_500c = 1;
+        // ptsz->has_completeness_for_ps_SZ = 1;
+
+      }
+
       if ((strstr(string1,"dndlnM") != NULL) ) {
         ptsz->has_dndlnM =_TRUE_;
         //ptsz->has_sz_counts =_TRUE_;
@@ -3265,6 +3315,14 @@ int input_read_parameters(
         ptsz->need_ng_bias = 1;
       }
 
+      if ((strstr(string1,"n5k") != NULL) ) {
+        ppt->has_pk_matter = _TRUE_;
+        ppt->has_perturbations = _TRUE_;
+        pnl->has_pk_cb = _TRUE_;
+        pnl->has_pk_m = _TRUE_;
+        ptsz->has_n5k = _TRUE_;
+      }
+
       class_call(parser_read_string(pfc,"include_ssc",&string1,&flag1,errmsg),
                    errmsg,
                    errmsg);
@@ -3322,6 +3380,7 @@ int input_read_parameters(
     class_read_int("cib_frequency_list_num",ptsz->cib_frequency_list_num);
     if (ptsz->has_cib_cib_1h
       + ptsz->has_cib_cib_2h
+      + ptsz->has_cib_shotnoise
       + ptsz->has_tSZ_cib_1h
       + ptsz->has_tSZ_cib_2h
       + ptsz->has_gal_cib_1h
@@ -3346,16 +3405,22 @@ int input_read_parameters(
      class_read_double("Emissivity index of sed",ptsz->beta_cib); // emissivity index of sed
      class_read_double("Power law index of SED at high frequency",ptsz->gamma_cib); // Power law index of SED at high frequency
      class_read_double("Redshift evolution of L − M normalisation",ptsz->delta_cib); // Redshift evolution of L − M normalisation
-     class_read_double("Most efficient halo mass in Msun",ptsz->m_eff_cib); // Most efficient halo mass in Msun/h
+     class_read_double("Most efficient halo mass in Msun",ptsz->m_eff_cib); // Most efficient halo mass in Msun
      class_read_double("Normalisation of L − M relation in [Jy MPc2/Msun]",ptsz->L0_cib); // Normalisation of L − M relation in [Jy MPc2/Msun]
      class_read_double("Size of of halo masses sourcing CIB emission",ptsz->sigma2_LM_cib); // Size of of halo masses sourcing CIB emission
      class_read_double("z_obs (CIB)",ptsz->z_obs_cib);
      class_read_double("z_plateau_cib",ptsz->z_plateau_cib);
      class_read_double("M_min_subhalo_in_Msun",ptsz->M_min_subhalo_in_Msun);
 
+     class_read_double("maniyar_cib_etamax",ptsz->maniyar_cib_etamax);
+     class_read_double("maniyar_cib_zc",ptsz->maniyar_cib_zc);
+     class_read_double("maniyar_cib_tau",ptsz->maniyar_cib_tau);
+     class_read_double("maniyar_cib_fsub",ptsz->maniyar_cib_fsub);
+
      class_read_int("use_redshift_dependent_M_min",ptsz->use_redshift_dependent_M_min);
      class_read_int("use_nc_1_for_all_halos_cib_HOD",ptsz->use_nc_1_for_all_halos_cib_HOD);
 
+     class_read_int("cib_nu0_norm",ptsz->cib_nu0_norm);
      class_read_int("use scale dependent bias (from non Gaussianity)",ptsz->has_ng_in_bh);
      class_read_double("fNL",ptsz->fNL);
      if(ptsz->has_ng_in_bh){
@@ -5042,6 +5107,7 @@ class_read_int("no_tt_noise_in_kSZ2X_cov",ptsz->no_tt_noise_in_kSZ2X_cov);
 
     if (ptsz->has_sz_ps
       + ptsz->has_sz_counts
+      + ptsz->has_sz_rates
       + ptsz->has_hmf
       + ptsz->has_pk_at_z_1h
       + ptsz->has_pk_at_z_2h
@@ -5062,6 +5128,7 @@ class_read_int("no_tt_noise_in_kSZ2X_cov",ptsz->no_tt_noise_in_kSZ2X_cov);
       + ptsz->has_bk_at_z_hf
       + ptsz->has_mean_y
       + ptsz->has_cib_monopole
+      + ptsz->has_cib_shotnoise
       + ptsz->has_dcib0dz
       + ptsz->has_dydz
       + ptsz->has_sz_2halo
@@ -5072,6 +5139,8 @@ class_read_int("no_tt_noise_in_kSZ2X_cov",ptsz->no_tt_noise_in_kSZ2X_cov);
       + ptsz->has_sz_cov_N_N
       + ptsz->has_sz_cov_N_N_hsv
       + ptsz->has_tSZ_tSZ_tSZ_1halo
+      + ptsz->has_tSZ_tSZ_tSZ_2h
+      + ptsz->has_tSZ_tSZ_tSZ_3h
       + ptsz->has_kSZ_kSZ_1h
       + ptsz->has_kSZ_kSZ_2h
       + ptsz->has_kSZ_kSZ_tSZ_1h
@@ -5110,6 +5179,7 @@ class_read_int("no_tt_noise_in_kSZ2X_cov",ptsz->no_tt_noise_in_kSZ2X_cov);
       + ptsz->has_gal_gal_1h
       + ptsz->has_gal_gal_2h
       + ptsz->has_gal_gal_hf
+      + ptsz->has_n5k
       + ptsz->has_gal_lens_1h
       + ptsz->has_gal_lens_2h
       + ptsz->has_gal_lens_hf
@@ -5181,7 +5251,7 @@ class_read_int("no_tt_noise_in_kSZ2X_cov",ptsz->no_tt_noise_in_kSZ2X_cov);
   /** (f) parameter related to the non-linear spectra computation */
 
   class_call(parser_read_string(pfc,
-                                "non linear",
+                                "non_linear",
                                 &(string1),
                                 &(flag1),
                                 errmsg),
@@ -5866,7 +5936,7 @@ int input_default_params(
   ptsz->M1_prime_HOD_factor = 15.;
   ptsz->M_min_HOD_satellite_mass_factor_unwise = 0.1;
 
-  ptsz->hm_consistency = 1; //0: nothing 1: counter terms 2: alpha(z)
+  ptsz->hm_consistency = 0; //0: nothing 1: counter terms 2: alpha(z)
   ptsz->check_consistency_conditions = 0;
   ptsz->damping_1h_term = 1;
 
@@ -5977,6 +6047,8 @@ int input_default_params(
   ptsz->x_size_for_pp = 2000;
 
   ptsz->f_sky = 1.; // full sky
+  ptsz->fsky_from_skyfracs = 1.;
+  ptsz->szunbinned_loglike = -1000.;
   ptsz->Omega_survey = 4.*_PI_*ptsz->f_sky;
 
   // integration_method_pressure_profile
@@ -6060,8 +6132,12 @@ int input_default_params(
   ptsz->z_plateau_cib = 1e100; // see 5.2.1 of https://arxiv.org/pdf/1208.5049.pdf
   ptsz->M_min_subhalo_in_Msun = 0;
   ptsz->use_redshift_dependent_M_min = 0;
+  ptsz->cib_nu0_norm = 1;
   ptsz->use_nc_1_for_all_halos_cib_HOD = 0;
-
+  ptsz->maniyar_cib_etamax = 0.4028353504978569; // see https://github.com/abhimaniyar/halomodel_cib_tsz_cibxtsz/blob/master/input_var.py
+  ptsz->maniyar_cib_zc = 1.5; // see https://github.com/abhimaniyar/halomodel_cib_tsz_cibxtsz/blob/master/input_var.py
+  ptsz->maniyar_cib_tau = 1.2040244128818796; // see https://github.com/abhimaniyar/halomodel_cib_tsz_cibxtsz/blob/master/input_var.py
+  ptsz->maniyar_cib_fsub = 0.134; // see https://github.com/abhimaniyar/halomodel_cib_tsz_cibxtsz/blob/master/Cell_cib.py
   ptsz->fNL = 0.;
 
   //# Table 1 of https://arxiv.org/pdf/1309.0382.pdf
@@ -6100,6 +6176,9 @@ int input_default_params(
   ptsz->apply_relativistic_correction_to_y_m = 0;
 
   ptsz->y_m_relation = 1; //0: planck, 1: act/so
+
+
+  ptsz->use_maniyar_cib_model = 0;
 
 
   pcsz->ystar = -0.186; //-0.186 ref. value in SZ_plus_priors.ini (cosmomc)
@@ -6141,13 +6220,13 @@ int input_default_params(
   ptsz->delta_cSZ = (3./20.)*pow(12.*_PI_,2./3.);
 
 
-  ptsz->k_per_decade_for_tSZ = 20.; //#default 40
-  ptsz->k_min_for_pk_in_tSZ = 1.e-3; //#default 1.e-3
+  ptsz->k_per_decade_for_tSZ = 50.; //#default 40
+  ptsz->k_min_for_pk_in_tSZ = 1.e-2; //#default 1.e-3
   ptsz->k_max_for_pk_in_tSZ = 1.e1; //#default 5
 
   ptsz->z_for_pk_hm = 1.;
   ptsz->k_min_for_pk_hm = 1e-2;
-  ptsz->k_min_for_pk_hm = 1e1;
+  ptsz->k_max_for_pk_hm = 1e1;
   ptsz->dlnk_for_pk_hm = 0.1;
 
 
@@ -6240,6 +6319,7 @@ int input_default_params(
 
   //ptsz->has_tszspectrum = _FALSE_;
   ptsz->has_sz_counts = _FALSE_;
+  ptsz->has_sz_rates = _FALSE_;
   ptsz->has_isw_lens = _FALSE_;
   ptsz->has_isw_tsz = _FALSE_;
   ptsz->has_isw_auto = _FALSE_;
@@ -6247,6 +6327,7 @@ int input_default_params(
   ptsz->has_gal_gal_1h = _FALSE_;
   ptsz->has_gal_gal_2h = _FALSE_;
   ptsz->has_gal_gal_hf = _FALSE_;
+  ptsz->has_n5k = _FALSE_;
   ptsz->has_gal_lens_1h = _FALSE_;
   ptsz->has_gal_lens_2h = _FALSE_;
   ptsz->has_gal_lens_hf = _FALSE_;
@@ -6323,6 +6404,8 @@ int input_default_params(
   ptsz->has_mean_galaxy_bias = _FALSE_;
   ptsz->has_kSZ_kSZ_lensmag_1halo = _FALSE_;
   ptsz->has_tSZ_tSZ_tSZ_1halo = _FALSE_;
+  ptsz->has_tSZ_tSZ_tSZ_2h = _FALSE_;
+  ptsz->has_tSZ_tSZ_tSZ_3h = _FALSE_;
   ptsz->has_kSZ_kSZ_1h = _FALSE_;
   ptsz->has_kSZ_kSZ_2h = _FALSE_;
   ptsz->has_kSZ_kSZ_tSZ_1h = _FALSE_;
@@ -6336,6 +6419,7 @@ int input_default_params(
   ptsz->has_sz_trispec = _FALSE_;
   ptsz->has_hmf = _FALSE_;
   ptsz->has_cib_monopole = _FALSE_;
+  ptsz->has_cib_shotnoise = _FALSE_;
   ptsz->has_dcib0dz = _FALSE_;
   ptsz->has_dydz = _FALSE_;
   ptsz->has_mean_y = _FALSE_;
@@ -6455,6 +6539,13 @@ int input_default_params(
 
   ptsz->index_md_pk_em_at_z_1h = 91;
   ptsz->index_md_pk_em_at_z_2h = 92;
+  ptsz->index_md_szrates = 93;
+  ptsz->index_md_pk_HI_at_z_2h = 94;
+
+  ptsz->index_md_tSZ_tSZ_tSZ_2h = 95;
+  ptsz->index_md_tSZ_tSZ_tSZ_3h = 96;
+
+  ptsz->index_md_cib_shotnoise= 97;
 
   ptsz->integrate_wrt_mvir = 0;
   ptsz->integrate_wrt_m500c = 0;

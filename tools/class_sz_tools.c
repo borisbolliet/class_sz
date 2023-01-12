@@ -976,6 +976,201 @@ int zbrent_m_to_xout(
 
 
 
+//This routine reads the tabulated
+//pk(z,k) for n5k challenge
+int load_n5k_pk_zk(
+                      struct tszspectrum * ptsz
+                      )
+{
+  //read the redshift and ln mass tables
+  char line[_LINE_LENGTH_MAX_];
+  FILE *process;
+  int n_data_guess, n_data = 0;
+  double *lnx = NULL, *tmp = NULL, **logC = NULL;
+  double this_lnx;
+  int status;
+  int index_x;
+  int index_k;
+  int index_z;
+
+
+  class_alloc(ptsz->n5k_pk_z,sizeof(double *)*100,ptsz->error_message);
+  class_alloc(ptsz->n5k_pk_k,sizeof(double *)*100,ptsz->error_message);
+
+
+
+  n_data = 0;
+  n_data_guess = 100;
+  lnx   = (double *)malloc(n_data_guess*sizeof(double));
+
+
+
+class_open(process,"sz_auxiliary_files/n5k_z.txt", "r",ptsz->error_message);
+
+  while (fgets(line, sizeof(line)-1, process) != NULL) {
+    sscanf(line, "%lf", &this_lnx);
+
+    if((n_data+1) > n_data_guess) {
+      n_data_guess *= 2;
+      tmp = (double *)realloc(lnx,   n_data_guess*sizeof(double));
+      class_test(tmp == NULL,
+                 ptsz->error_message,
+                 "Error allocating memory to read the n5k files.\n");
+      lnx = tmp;
+    };
+
+
+    /* Store */
+    lnx[n_data]   = this_lnx;
+    n_data++;
+  }
+
+  // status = pclose(process);
+  status = fclose(process);
+  class_test(status != 0.,
+             ptsz->error_message,
+             "The attempt to launch the external command was unsuccessful. "
+             "Try doing it by hand to check for errors.");
+
+  ptsz->n5k_pk_z_size = n_data;
+
+  class_realloc(ptsz->n5k_pk_z,
+                ptsz->n5k_pk_z,
+                ptsz->n5k_pk_z_size*sizeof(double),
+                ptsz->error_message);
+
+
+  /** Store them */
+  for (index_x=0; index_x<ptsz->n5k_pk_z_size; index_x++) {
+    ptsz->n5k_pk_z[index_x] = lnx[index_x];
+  };
+
+
+  //Masses
+
+  n_data = 0;
+  n_data_guess = 100;
+  lnx   = (double *)malloc(n_data_guess*sizeof(double));
+
+
+  class_open(process,"sz_auxiliary_files/n5k_k.txt", "r",ptsz->error_message);
+
+  // printf("-> %s\n",Filepath);
+
+  while (fgets(line, sizeof(line)-1, process) != NULL) {
+    sscanf(line, "%lf", &this_lnx);
+
+    if((n_data+1) > n_data_guess) {
+      n_data_guess *= 2;
+      tmp = (double *)realloc(lnx,   n_data_guess*sizeof(double));
+      class_test(tmp == NULL,
+                 ptsz->error_message,
+                 "Error allocating memory to read the n5k file.\n");
+      lnx = tmp;
+    };
+
+
+    /* Store */
+    lnx[n_data]   = this_lnx;
+    n_data++;
+  }
+
+  // status = pclose(process);
+  status = fclose(process);
+  class_test(status != 0.,
+             ptsz->error_message,
+             "The attempt to launch the external command was unsuccessful. "
+             "Try doing it by hand to check for errors.");
+
+  ptsz->n5k_pk_k_size = n_data;
+
+  class_realloc(ptsz->n5k_pk_k,
+                ptsz->n5k_pk_k,
+                ptsz->n5k_pk_k_size*sizeof(double),
+                ptsz->error_message);
+
+
+  /** Store them */
+  for (index_x=0; index_x<ptsz->n5k_pk_k_size; index_x++) {
+    ptsz->n5k_pk_k[index_x] = log(lnx[index_x]);
+  };
+
+
+  /** Release the memory used locally */
+  free(lnx);
+
+  //Read pk
+
+  class_alloc(ptsz->n5k_pk_pk,
+              sizeof(double *)*ptsz->n5k_pk_z_size*ptsz->n5k_pk_k_size,
+              ptsz->error_message);
+
+  class_alloc(logC,
+              ptsz->n5k_pk_z_size*sizeof(double *),
+              ptsz->error_message);
+
+
+  for (index_z=0;
+       index_z<ptsz->n5k_pk_z_size;
+       index_z++)
+  {
+    class_alloc(logC[index_z],
+                ptsz->n5k_pk_k_size*sizeof(double),
+                ptsz->error_message);
+  }
+
+
+  class_open(process,"sz_auxiliary_files/n5k_pk_nl.txt", "r",ptsz->error_message);
+
+
+  int z =0;
+  while (fgets(line, sizeof(line)-1, process) != NULL) {
+    // printf("%s", line);
+    // exit(0);
+    int i=0;
+    char *err, *p = line;
+    double val;
+    while (*p) {
+      val = strtod(p, &err);
+      logC[z][i] = log(val); //printf("%d-%.3e ",i,val);
+      p = err + 1;
+      i+=1;
+    }
+    // printf("\n %d \n",z);
+    z+=1;
+  }
+
+  // printf("storing");
+  int index = 0;
+  for (index_z=0;
+       index_z<ptsz->n5k_pk_z_size;
+       index_z++){
+    for (index_k=0;
+         index_k<ptsz->n5k_pk_k_size;
+         index_k++){
+
+      ptsz->n5k_pk_pk[index] = logC[index_z][index_k];
+      // printf("pk %.5e\n", logC[index_z][index_k]);//ptsz->n5k_pk_pk[index]);
+      index += 1;
+    }
+  }
+
+  status = fclose(process);
+
+
+  for (index_z=0;
+       index_z<ptsz->n5k_pk_z_size;
+       index_z++){
+         free(logC[index_z]);
+       }
+  free(logC);
+
+  printf("n5k pk loaded with %d z and %d k\n",ptsz->n5k_pk_z_size,ptsz->n5k_pk_k_size);
+
+  return _SUCCESS_;
+}
+
+
 
 //This routine reads the tabulated
 //C-M relation Zhao2009,
@@ -4125,6 +4320,78 @@ double get_normalization_gas_density_profile(double z_asked, double m_asked, str
 }
 
 
+double get_n5k_pk_at_z_and_k(double z_asked, double k_asked, struct tszspectrum * ptsz){
+  double z = z_asked;
+  double k = log(k_asked);
+
+  double result = 0.;
+  if (z<ptsz->n5k_pk_z[0]){
+    printf("z too small\n");
+    result = 0.;
+  }
+  else if (z>ptsz->n5k_pk_z[ptsz->n5k_pk_z_size-1]){
+    printf("z too big\n");
+    result = 0.;
+  }
+  else if (k<ptsz->n5k_pk_k[0]){
+    printf("k too small\n");
+    result = 0.;
+  }
+  else if (k>ptsz->n5k_pk_k[ptsz->n5k_pk_k_size-1]){
+    printf("k too big\n");
+    result = 0.;
+  }
+  else{
+    result = exp(pwl_interp_2d(ptsz->n5k_pk_k_size,
+                               ptsz->n5k_pk_z_size,
+                               ptsz->n5k_pk_k,
+                               ptsz->n5k_pk_z,
+                               ptsz->n5k_pk_pk,
+                               1,
+                               &k,
+                               &z));
+  }
+  return result;
+}
+
+
+
+
+double get_cib_Snu_z_and_nu(double z_asked, double nu_asked, struct tszspectrum * ptsz){
+  double z = z_asked;
+  double k = nu_asked;
+
+  double result = 0.;
+  if (z<ptsz->cib_Snu_z[0]){
+    printf("z too small\n");
+    result = 0.;
+  }
+  else if (z>ptsz->cib_Snu_z[ptsz->cib_Snu_z_size-1]){
+    printf("z too big\n");
+    result = 0.;
+  }
+  else if (k<ptsz->cib_Snu_nu[0]){
+    printf("nu too small\n");
+    result = 0.;
+  }
+  else if (k>ptsz->cib_Snu_nu[ptsz->cib_Snu_nu_size-1]){
+    printf("nu too big numax = %.3e\n",ptsz->cib_Snu_nu[ptsz->cib_Snu_nu_size-1]);
+    result = 0.;
+  }
+  else{
+    result = exp(pwl_interp_2d(ptsz->cib_Snu_nu_size,
+                               ptsz->cib_Snu_z_size,
+                               ptsz->cib_Snu_nu,
+                               ptsz->cib_Snu_z,
+                               ptsz->cib_Snu_snu,
+                               1,
+                               &k,
+                               &z));
+  }
+  return result;
+}
+
+
 
 
 
@@ -5037,6 +5304,8 @@ int spectra_sigma_for_tSZ(
   int i;
 
   double k,W,x;
+  double t;
+
 
 
   i=0;
@@ -5054,8 +5323,13 @@ int spectra_sigma_for_tSZ(
 
   for (i=0;i<ptsz->ln_k_size_for_tSZ;i++) {
     k=exp(ptsz->ln_k_for_tSZ[i]);
+    t = 1./(1.+k);
     if (i == (ptsz->ln_k_size_for_tSZ-1)) k *= 0.9999999; // to prevent rounding error leading to k being bigger than maximum value
     x=k*R;
+
+    if (x<0.01)
+      W = 1.-x*x/10.;
+    else
     W=3./x/x/x*(sin(x)-x*cos(x));
 
     /*
@@ -5078,8 +5352,8 @@ int spectra_sigma_for_tSZ(
                                      pnl->error_message);
 
 
-    array_for_sigma[i*index_num+index_k]=k;
-    array_for_sigma[i*index_num+index_y]=k*k*pk*W*W;
+    array_for_sigma[i*index_num+index_k]=t;
+    array_for_sigma[i*index_num+index_y]=k*k*k*pk*W*W/(t*(1.-t));
   }
 
 
@@ -5096,9 +5370,10 @@ int spectra_sigma_for_tSZ(
              pnl->error_message,
              pnl->error_message);
 
-  class_call(array_integrate_all_spline(array_for_sigma,
+  class_call(array_integrate_all_trapzd_or_spline(array_for_sigma,
                                         index_num,
                                         ptsz->ln_k_size_for_tSZ,
+                                        0,
                                         index_k,
                                         index_y,
                                         index_ddy,
@@ -5107,10 +5382,73 @@ int spectra_sigma_for_tSZ(
              pnl->error_message,
              pnl->error_message);
 
+
+  double sigmat = *sigma;
+
+  //
+  // for (i=0;i<ptsz->ln_k_size_for_tSZ;i++) {
+  //   k=exp(ptsz->ln_k_for_tSZ[i]);
+  //   if (i == (ptsz->ln_k_size_for_tSZ-1)) k *= 0.9999999; // to prevent rounding error leading to k being bigger than maximum value
+  //   x=k*R;
+  //   W=3./x/x/x*(sin(x)-x*cos(x));
+  //
+  //   /*
+  //   class_call(spectra_pk_at_k_and_z(pba,ppm,psp,k,z,&pk,pk_ic),
+  //              psp->error_message,
+  //              psp->error_message);*/
+  //
+  //    class_call(nonlinear_pk_at_k_and_z(
+  //                                      pba,
+  //                                      ppm,
+  //                                      pnl,
+  //                                      pk_linear,
+  //                                      k,
+  //                                      z,
+  //                                      pnl->index_pk_m,
+  //                                      &pk, // number *out_pk_l
+  //                                      pk_ic // array out_pk_ic_l[index_ic_ic]
+  //                                    ),
+  //                                    pnl->error_message,
+  //                                    pnl->error_message);
+  //
+  //
+  //   array_for_sigma[i*index_num+index_k]=k;
+  //   array_for_sigma[i*index_num+index_y]=k*k*pk*W*W;
+  // }
+  //
+  //
+  //
+  //
+  // class_call(array_spline(array_for_sigma,
+  //                         index_num,
+  //                         ptsz->ln_k_size_for_tSZ,
+  //                         index_k,
+  //                         index_y,
+  //                         index_ddy,
+  //                         _SPLINE_EST_DERIV_,
+  //                         pnl->error_message),
+  //            pnl->error_message,
+  //            pnl->error_message);
+  //
+  // class_call(array_integrate_all_trapzd_or_spline(array_for_sigma,
+  //                                       index_num,
+  //                                       ptsz->ln_k_size_for_tSZ,
+  //                                       0,
+  //                                       index_k,
+  //                                       index_y,
+  //                                       index_ddy,
+  //                                       sigma,
+  //                                       pnl->error_message),
+  //            pnl->error_message,
+  //            pnl->error_message);
+  //
+  // // printf("sigma t = %.5e n = %.5e\n",sigmat,*sigma);
+
   free(array_for_sigma);
 
 
-  *sigma = sqrt(*sigma/(2.*_PI_*_PI_));
+  // *sigma = sqrt(*sigma/(2.*_PI_*_PI_));
+  *sigma = sqrt(-sigmat/(2.*_PI_*_PI_));
 
   return _SUCCESS_;
 
@@ -5140,7 +5478,7 @@ int spectra_sigma_prime(
   int index_ddy;
   int i;
 
-  double k,W,x,W_prime;
+  double k,W,x,W_prime,t;
 
 
 
@@ -5159,10 +5497,17 @@ int spectra_sigma_prime(
 
   for (i=0;i<ptsz->ln_k_size_for_tSZ;i++) {
     k=exp(ptsz->ln_k_for_tSZ[i]);
+    t = 1./(1.+k);
     if (i == (ptsz->ln_k_size_for_tSZ-1)) k *= 0.9999999; // to prevent rounding error leading to k being bigger than maximum value
     x=k*R;
+    if (x<0.01) {
+      W = 1.-x*x/10.;
+      W_prime = -0.2*x;
+    }
+    else {
     W=3./x/x/x*(sin(x)-x*cos(x));
     W_prime=3./x/x*sin(x)-9./x/x/x/x*(sin(x)-x*cos(x));
+    }
 
     //class_call(spectra_pk_at_k_and_z(pba,ppm,psp,k,z,&pk,pk_ic),
     //           psp->error_message,
@@ -5183,8 +5528,8 @@ int spectra_sigma_prime(
                                     pnl->error_message);
 
 
-    array_for_sigma[i*index_num+index_k]=k;
-    array_for_sigma[i*index_num+index_y]=k*k*pk*k*2.*W*W_prime;
+    array_for_sigma[i*index_num+index_k]=t;//k;
+    array_for_sigma[i*index_num+index_y]=k*k*k*pk*2.*k*W*W_prime/(t*(1.-t));//k*k*pk*k*2.*W*W_prime;
   }
 
   class_call(array_spline(array_for_sigma,
@@ -5198,9 +5543,10 @@ int spectra_sigma_prime(
              pnl->error_message,
              pnl->error_message);
 
-  class_call(array_integrate_all_spline(array_for_sigma,
+  class_call(array_integrate_all_trapzd_or_spline(array_for_sigma,
                                         index_num,
                                         ptsz->ln_k_size_for_tSZ,
+                                        0,
                                         index_k,
                                         index_y,
                                         index_ddy,
@@ -5213,7 +5559,7 @@ int spectra_sigma_prime(
 
 
 
-  *sigma_prime = *sigma_prime/(2.*_PI_*_PI_);
+  *sigma_prime = -*sigma_prime/(2.*_PI_*_PI_);
 
   return _SUCCESS_;
 
@@ -5248,6 +5594,8 @@ if (ptsz->pressure_profile != 0 && ptsz->pressure_profile != 2 )
      +ptsz->has_tSZ_lens_1h
      +ptsz->has_tSZ_lens_2h
      +ptsz->has_tSZ_tSZ_tSZ_1halo
+     +ptsz->has_tSZ_tSZ_tSZ_2h
+     +ptsz->has_tSZ_tSZ_tSZ_3h
      +ptsz->has_kSZ_kSZ_tSZ_1h
      +ptsz->has_kSZ_kSZ_tSZ_2h
      +ptsz->has_kSZ_kSZ_tSZ_3h
@@ -5572,6 +5920,298 @@ else  nl_kcmb_kcmb = pwl_value_1d(ptsz->lensing_noise_size,
                               l);
 return nl_kcmb_kcmb;
 }
+
+
+double get_n5k_cl_K1_at_chi(double chi,
+                                struct tszspectrum * ptsz){
+double r;
+if (chi<ptsz->n5k_cl_K1_chi[0])
+  r = 0.;
+else if (chi>ptsz->n5k_cl_K1_chi[ptsz->n5k_cl_K1_size-1])
+  r = 0;
+
+else  r = pwl_value_1d(ptsz->n5k_cl_K1_size,
+                              ptsz->n5k_cl_K1_chi,
+                              ptsz->n5k_cl_K1_K1,
+                              chi);
+return r;
+}
+
+double get_n5k_z_of_chi(double chi,
+                                struct tszspectrum * ptsz){
+double r;
+if (chi<ptsz->n5k_z_of_chi_chi[0])
+  r = 0.;
+else if (chi>ptsz->n5k_z_of_chi_chi[ptsz->n5k_z_of_chi_size-1])
+  r = 0;
+
+else  r = pwl_value_1d(ptsz->n5k_z_of_chi_size,
+                              ptsz->n5k_z_of_chi_chi,
+                              ptsz->n5k_z_of_chi_z,
+                              chi);
+return r;
+}
+
+
+
+
+
+int load_n5k_cl_K1(struct tszspectrum * ptsz)
+{
+
+
+
+if (ptsz->sz_verbose >= 1)
+  printf("-> loading n5k Kernel K1 cl\n");
+
+
+  class_alloc(ptsz->n5k_cl_K1_chi,sizeof(double *)*100,ptsz->error_message);
+  class_alloc(ptsz->n5k_cl_K1_K1,sizeof(double *)*100,ptsz->error_message);
+  //class_alloc(ptsz->PP_d2lnI,sizeof(double *)*100,ptsz->error_message);
+
+  //char arguments[_ARGUMENT_LENGTH_MAX_];
+  char line[_LINE_LENGTH_MAX_];
+  //char command_with_arguments[2*_ARGUMENT_LENGTH_MAX_];
+  FILE *process;
+  int n_data_guess, n_data = 0;
+  double *lnx = NULL, *lnI = NULL,  *tmp = NULL;
+  double this_lnx, this_lnI;
+  int status;
+  int index_x;
+
+
+  /** 1. Initialization */
+  /* Prepare the data (with some initial size) */
+  n_data_guess = 100;
+  lnx   = (double *)malloc(n_data_guess*sizeof(double));
+  lnI = (double *)malloc(n_data_guess*sizeof(double));
+
+
+
+  /* Prepare the command */
+  /* If the command is just a "cat", no arguments need to be passed */
+  // if(strncmp("cat ", ptsz->command, 4) == 0)
+  // {
+  // sprintf(arguments, " ");
+  // }
+
+  /** 2. Launch the command and retrieve the output */
+  /* Launch the process */
+  // char Filepath[_ARGUMENT_LENGTH_MAX_];
+  // if (ptsz->sz_verbose >= 1)
+  //   printf("-> File Name: %s\n",ptsz->cmb_lensing_noise_file);
+  class_open(process,"sz_auxiliary_files/n5k_gg_chi_K0.txt", "r",ptsz->error_message);
+  // if (ptsz->sz_verbose >= 1)
+  //   printf("-> File Name: %s\n",ptsz->cmb_lensing_noise_file);
+
+  //int il = 0;
+  /* Read output and store it */
+  while (fgets(line, sizeof(line)-1, process) != NULL) {
+    //printf("%d\n",il);
+    //il++;
+    sscanf(line, "%lf %lf ", &this_lnx, &this_lnI);
+
+
+
+    /* Standard technique in C:
+     /*if too many data, double the size of the vectors */
+    /* (it is faster and safer that reallocating every new line) */
+    if((n_data+1) > n_data_guess) {
+      n_data_guess *= 2;
+      tmp = (double *)realloc(lnx,   n_data_guess*sizeof(double));
+      class_test(tmp == NULL,
+                 ptsz->error_message,
+                 "Error allocating memory to read the pressure profile.\n");
+      lnx = tmp;
+      tmp = (double *)realloc(lnI, n_data_guess*sizeof(double));
+      class_test(tmp == NULL,
+                 ptsz->error_message,
+                 "Error allocating memory to read the pressure profile.\n");
+      lnI = tmp;
+    };
+    /* Store */
+    lnx[n_data]   = this_lnx;
+    lnI[n_data]   = this_lnI;
+
+    n_data++;
+    /* Check ascending order of the k's */
+    if(n_data>1) {
+      class_test(lnx[n_data-1] <= lnx[n_data-2],
+                 ptsz->error_message,
+                 "The ell/ells's are not strictly sorted in ascending order, "
+                 "as it is required for the calculation of the splines.\n");
+    }
+  }
+
+  /* Close the process */
+  status = fclose(process);
+  class_test(status != 0.,
+             ptsz->error_message,
+             "The attempt to launch the external command was unsuccessful. "
+             "Try doing it by hand to check for errors.");
+
+  /** 3. Store the read results into CLASS structures */
+  ptsz->n5k_cl_K1_size = n_data;
+  /** Make room */
+
+  class_realloc(ptsz->n5k_cl_K1_chi,
+                ptsz->n5k_cl_K1_chi,
+                ptsz->n5k_cl_K1_size*sizeof(double),
+                ptsz->error_message);
+  class_realloc(ptsz->n5k_cl_K1_K1,
+                ptsz->n5k_cl_K1_K1,
+                ptsz->n5k_cl_K1_size*sizeof(double),
+                ptsz->error_message);
+
+
+
+  /** Store them */
+  for (index_x=0; index_x<ptsz->n5k_cl_K1_size; index_x++) {
+    ptsz->n5k_cl_K1_chi[index_x] = lnx[index_x];
+    ptsz->n5k_cl_K1_K1[index_x] = lnI[index_x];
+
+    // printf("%.5e %.5e\n",ptsz->l_lensing_noise[index_x],ptsz->nl_lensing_noise[index_x]);
+
+    //printf("z=%.3e phig=%.3e\n",ptsz->unbinned_nl_yy_ell[index_x],ptsz->unbinned_nl_yy_n_ell[index_x]);
+  };
+
+  // exit(0);
+  /** Release the memory used locally */
+  free(lnx);
+  free(lnI);
+
+  return _SUCCESS_;
+}
+
+
+
+int load_n5k_z_of_chi(struct tszspectrum * ptsz)
+{
+
+
+
+if (ptsz->sz_verbose >= 1)
+  printf("-> loading n5k z_of_chi\n");
+
+
+  class_alloc(ptsz->n5k_z_of_chi_chi,sizeof(double *)*100,ptsz->error_message);
+  class_alloc(ptsz->n5k_z_of_chi_z,sizeof(double *)*100,ptsz->error_message);
+  //class_alloc(ptsz->PP_d2lnI,sizeof(double *)*100,ptsz->error_message);
+
+  //char arguments[_ARGUMENT_LENGTH_MAX_];
+  char line[_LINE_LENGTH_MAX_];
+  //char command_with_arguments[2*_ARGUMENT_LENGTH_MAX_];
+  FILE *process;
+  int n_data_guess, n_data = 0;
+  double *lnx = NULL, *lnI = NULL,  *tmp = NULL;
+  double this_lnx, this_lnI;
+  int status;
+  int index_x;
+
+
+  /** 1. Initialization */
+  /* Prepare the data (with some initial size) */
+  n_data_guess = 100;
+  lnx   = (double *)malloc(n_data_guess*sizeof(double));
+  lnI = (double *)malloc(n_data_guess*sizeof(double));
+
+
+
+  /* Prepare the command */
+  /* If the command is just a "cat", no arguments need to be passed */
+  // if(strncmp("cat ", ptsz->command, 4) == 0)
+  // {
+  // sprintf(arguments, " ");
+  // }
+
+  /** 2. Launch the command and retrieve the output */
+  /* Launch the process */
+  // char Filepath[_ARGUMENT_LENGTH_MAX_];
+  // if (ptsz->sz_verbose >= 1)
+  //   printf("-> File Name: %s\n",ptsz->cmb_lensing_noise_file);
+  class_open(process,"sz_auxiliary_files/n5k_z_chi.txt", "r",ptsz->error_message);
+  // if (ptsz->sz_verbose >= 1)
+  //   printf("-> File Name: %s\n",ptsz->cmb_lensing_noise_file);
+
+  //int il = 0;
+  /* Read output and store it */
+  while (fgets(line, sizeof(line)-1, process) != NULL) {
+    //printf("%d\n",il);
+    //il++;
+    sscanf(line, "%lf %lf ", &this_lnx, &this_lnI);
+
+
+
+    /* Standard technique in C:
+     /*if too many data, double the size of the vectors */
+    /* (it is faster and safer that reallocating every new line) */
+    if((n_data+1) > n_data_guess) {
+      n_data_guess *= 2;
+      tmp = (double *)realloc(lnx,   n_data_guess*sizeof(double));
+      class_test(tmp == NULL,
+                 ptsz->error_message,
+                 "Error allocating memory to read the pressure profile.\n");
+      lnx = tmp;
+      tmp = (double *)realloc(lnI, n_data_guess*sizeof(double));
+      class_test(tmp == NULL,
+                 ptsz->error_message,
+                 "Error allocating memory to read the pressure profile.\n");
+      lnI = tmp;
+    };
+    /* Store */
+    lnx[n_data]   = this_lnx;
+    lnI[n_data]   = this_lnI;
+
+    n_data++;
+    /* Check ascending order of the k's */
+    if(n_data>1) {
+      class_test(lnx[n_data-1] <= lnx[n_data-2],
+                 ptsz->error_message,
+                 "The ell/ells's are not strictly sorted in ascending order, "
+                 "as it is required for the calculation of the splines.\n");
+    }
+  }
+
+  /* Close the process */
+  status = fclose(process);
+  class_test(status != 0.,
+             ptsz->error_message,
+             "The attempt to launch the external command was unsuccessful. "
+             "Try doing it by hand to check for errors.");
+
+  /** 3. Store the read results into CLASS structures */
+  ptsz->n5k_z_of_chi_size = n_data;
+  /** Make room */
+
+  class_realloc(ptsz->n5k_z_of_chi_chi,
+                ptsz->n5k_z_of_chi_chi,
+                ptsz->n5k_z_of_chi_size*sizeof(double),
+                ptsz->error_message);
+  class_realloc(ptsz->n5k_z_of_chi_z,
+                ptsz->n5k_z_of_chi_z,
+                ptsz->n5k_z_of_chi_size*sizeof(double),
+                ptsz->error_message);
+
+
+
+  /** Store them */
+  for (index_x=0; index_x<ptsz->n5k_cl_K1_size; index_x++) {
+    ptsz->n5k_z_of_chi_z[index_x] = lnx[index_x];
+    ptsz->n5k_z_of_chi_chi[index_x] = lnI[index_x];
+
+    // printf("%.5e %.5e\n",ptsz->l_lensing_noise[index_x],ptsz->nl_lensing_noise[index_x]);
+
+    //printf("z=%.3e phig=%.3e\n",ptsz->unbinned_nl_yy_ell[index_x],ptsz->unbinned_nl_yy_n_ell[index_x]);
+  };
+
+  // exit(0);
+  /** Release the memory used locally */
+  free(lnx);
+  free(lnI);
+
+  return _SUCCESS_;
+}
+
 
 
 
@@ -5992,6 +6632,202 @@ if (ptsz->sz_verbose>=1){
   return _SUCCESS_;
 }
 
+
+
+//This routine reads the tabulated
+//Snu(z,nu) for cib computations
+int load_cib_Snu(
+                      struct tszspectrum * ptsz
+                      )
+{
+  //read the redshift and ln mass tables
+  char line[_LINE_LENGTH_MAX_];
+  FILE *process;
+  int n_data_guess, n_data = 0;
+  double *lnx = NULL, *tmp = NULL, **logC = NULL;
+  double this_lnx;
+  int status;
+  int index_x;
+  int index_k;
+  int index_z;
+
+
+  class_alloc(ptsz->cib_Snu_z,sizeof(double *)*100,ptsz->error_message);
+  class_alloc(ptsz->cib_Snu_nu,sizeof(double *)*100,ptsz->error_message);
+
+
+
+  n_data = 0;
+  n_data_guess = 100;
+  lnx   = (double *)malloc(n_data_guess*sizeof(double));
+
+
+
+class_open(process,ptsz->cib_Snu_file_z, "r",ptsz->error_message);
+
+  while (fgets(line, sizeof(line)-1, process) != NULL) {
+    sscanf(line, "%lf", &this_lnx);
+
+    if((n_data+1) > n_data_guess) {
+      n_data_guess *= 2;
+      tmp = (double *)realloc(lnx,   n_data_guess*sizeof(double));
+      class_test(tmp == NULL,
+                 ptsz->error_message,
+                 "Error allocating memory to read the snu files.\n");
+      lnx = tmp;
+    };
+
+
+    /* Store */
+    lnx[n_data]   = this_lnx;
+    n_data++;
+  }
+
+  // status = pclose(process);
+  status = fclose(process);
+  class_test(status != 0.,
+             ptsz->error_message,
+             "The attempt to launch the external command was unsuccessful. "
+             "Try doing it by hand to check for errors.");
+
+  ptsz->cib_Snu_z_size = n_data;
+
+  class_realloc(ptsz->cib_Snu_z,
+                ptsz->cib_Snu_z,
+                ptsz->cib_Snu_z_size*sizeof(double),
+                ptsz->error_message);
+
+
+  /** Store them */
+  for (index_x=0; index_x<ptsz->cib_Snu_z_size; index_x++) {
+    ptsz->cib_Snu_z[index_x] = lnx[index_x];
+  };
+
+
+  //Masses
+
+  n_data = 0;
+  n_data_guess = 100;
+  lnx   = (double *)malloc(n_data_guess*sizeof(double));
+
+class_open(process,ptsz->cib_Snu_file_nu, "r",ptsz->error_message);
+  // class_open(process,"sz_auxiliary_files/filtered_snu_planck_nu.txt", "r",ptsz->error_message);
+
+  // printf("-> %s\n",Filepath);
+
+  while (fgets(line, sizeof(line)-1, process) != NULL) {
+    sscanf(line, "%lf", &this_lnx);
+
+    if((n_data+1) > n_data_guess) {
+      n_data_guess *= 2;
+      tmp = (double *)realloc(lnx,   n_data_guess*sizeof(double));
+      class_test(tmp == NULL,
+                 ptsz->error_message,
+                 "Error allocating memory to read the Snu files.\n");
+      lnx = tmp;
+    };
+
+
+    /* Store */
+    lnx[n_data]   = this_lnx;
+    n_data++;
+  }
+
+  // status = pclose(process);
+  status = fclose(process);
+  class_test(status != 0.,
+             ptsz->error_message,
+             "The attempt to launch the external command was unsuccessful. "
+             "Try doing it by hand to check for errors.");
+
+  ptsz->cib_Snu_nu_size = n_data;
+
+  class_realloc(ptsz->cib_Snu_nu,
+                ptsz->cib_Snu_nu,
+                ptsz->cib_Snu_nu_size*sizeof(double),
+                ptsz->error_message);
+
+
+  /** Store them */
+  for (index_x=0; index_x<ptsz->cib_Snu_nu_size; index_x++) {
+    ptsz->cib_Snu_nu[index_x] = lnx[index_x];
+  };
+
+
+  /** Release the memory used locally */
+  free(lnx);
+
+  //Read pk
+
+  class_alloc(ptsz->cib_Snu_snu,
+              sizeof(double *)*ptsz->cib_Snu_z_size*ptsz->cib_Snu_nu_size,
+              ptsz->error_message);
+
+  class_alloc(logC,
+              ptsz->cib_Snu_z_size*sizeof(double *),
+              ptsz->error_message);
+
+
+  for (index_z=0;
+       index_z<ptsz->cib_Snu_z_size;
+       index_z++)
+  {
+    class_alloc(logC[index_z],
+                ptsz->cib_Snu_nu_size*sizeof(double),
+                ptsz->error_message);
+  }
+
+
+class_open(process,ptsz->cib_Snu_file_snu, "r",ptsz->error_message);
+  // class_open(process,"sz_auxiliary_files/filtered_snu_planck_90_100_143_217_353_545_857.txt", "r",ptsz->error_message);
+
+
+  int z =0;
+  while (fgets(line, sizeof(line)-1, process) != NULL) {
+    // printf("%s", line);
+    // exit(0);
+    int i=0;
+    char *err, *p = line;
+    double val;
+    while (*p) {
+      val = strtod(p, &err);
+      logC[z][i] = log(val); //printf("%d-%.3e ",i,val);
+      p = err + 1;
+      i+=1;
+    }
+    // printf("\n %d \n",z);
+    z+=1;
+  }
+
+  // printf("storing");
+  int index = 0;
+  for (index_z=0;
+       index_z<ptsz->cib_Snu_z_size;
+       index_z++){
+    for (index_k=0;
+         index_k<ptsz->cib_Snu_nu_size;
+         index_k++){
+
+      ptsz->cib_Snu_snu[index] = logC[index_z][index_k];
+      // printf("pk %.5e\n", logC[index_z][index_k]);//ptsz->n5k_pk_pk[index]);
+      index += 1;
+    }
+  }
+
+  status = fclose(process);
+
+
+  for (index_z=0;
+       index_z<ptsz->cib_Snu_z_size;
+       index_z++){
+         free(logC[index_z]);
+       }
+  free(logC);
+
+  printf("cib Snu loaded with %d z and %d nu\n",ptsz->cib_Snu_z_size,ptsz->cib_Snu_nu_size);
+
+  return _SUCCESS_;
+}
 
 
 //This routine reads the tabulated
@@ -6974,7 +7810,7 @@ int MF_T08_m500(
                 )
 {
   //T08@m500
-  if(z>3.) z=3.;
+  // if(z>3.) z=3.; // ccl doesnt have this.. commenting for now.
   double om0 = ptsz->Omega_m_0;
   double ol0 = 1.-ptsz->Omega_m_0;
   double Omega_m_z = om0*pow(1.+z,3.)/(om0*pow(1.+z,3.)+ ol0);
@@ -7184,18 +8020,18 @@ int MF_T08_m500(
   double   b=*b0*pow(1.+z,-alphaT08);
   double   c=*c0;
   double   nu= exp(*lognu);
-  double sigma= 1.6865/sqrt(nu);
+  double sigma= ptsz->delta_cSZ/sqrt(nu);
 
   free(Ap0);
   free(a0);
   free(b0);
   free(c0);
 
-  //sigma = 1.;
+  // sigma = .1;
 
   *result = 0.5*(Ap*(pow(sigma/b,-a)+1.)*exp(-c/pow(sigma,2.)));
-  //*result = 0.5*(Ap*(pow(1.0/b,-a)+1.)*exp(-c/pow(1.0,2.)));
-
+  // *result = 0.5*(Ap*(pow(1.0/b,-a)+1.)*exp(-c/pow(1.0,2.)));
+  // *result = 0.5;
   return _SUCCESS_;
 }
 
@@ -7337,36 +8173,38 @@ double get_f_tinker10_at_nu_and_z(double nu, double z,struct tszspectrum * ptsz)
 
 
 
-//HMF Tinker et al 2008
-//@ M200m
-int MF_T08(
-           double * result,
-           double * lognu ,
-           double z ,
-           struct tszspectrum * ptsz
-           )
-{
-  // double alphaT08 = pow(10.,-pow(0.75/log10(200./75.),1.2));
-  //
-  // double   Ap=0.186*pow(1.+z,-0.14);
-  // double   a=1.47*pow(1.+z,-0.06);
-  // double   b=2.57*pow(1.+z,-alphaT08);
-  // double   c=1.19;
-  // double   nu= exp(*lognu);
-  // double sigma= ptsz->delta_cSZ/sqrt(nu);
-  //
-  // *result = 0.5*(Ap*(pow(sigma/b,-a)+1.)*exp(-c/pow(sigma,2.)));
-
-  *result = get_f_tinker08_at_nu_and_z(exp(*lognu),z,ptsz);
-
-  return _SUCCESS_;
-}
+// //HMF Tinker et al 2008
+// //@ M200m
+// ---> deprecated: all done in the one that we interpolate
+// int MF_T08(
+//            double * result,
+//            double * lognu ,
+//            double z ,
+//            struct tszspectrum * ptsz
+//            )
+// {
+//   // double alphaT08 = pow(10.,-pow(0.75/log10(200./75.),1.2));
+//   //
+//   // double   Ap=0.186*pow(1.+z,-0.14);
+//   // double   a=1.47*pow(1.+z,-0.06);
+//   // double   b=2.57*pow(1.+z,-alphaT08);
+//   // double   c=1.19;
+//   // double   nu= exp(*lognu);
+//   // double sigma= ptsz->delta_cSZ/sqrt(nu);
+//   //
+//   // *result = 0.5*(Ap*(pow(sigma/b,-a)+1.)*exp(-c/pow(sigma,2.)));
+//
+//   *result = get_f_tinker08_at_nu_and_z(exp(*lognu),z,ptsz);
+//
+//   return _SUCCESS_;
+// }
 
 
 
 double get_f_tinker08_at_nu_and_z(double nu, double z,  struct tszspectrum * ptsz){
 
   if(z>2.5) z=2.5; // see sec 4 of https://arxiv.org/pdf/0803.2706.pdf
+  // this is not in CCL
 
   double alphaT08 = pow(10.,-pow(0.75/log10(200./75.),1.2));
 
@@ -8075,7 +8913,7 @@ else if ((V->ptsz->has_lens_lens_hf == _TRUE_) && (index_md == V->ptsz->index_md
 
   // then quantities that require mass integration
   else {
-  // printf("integrating over mass\n");
+  // printf("integrating over mass at z = %.3e\n",z);
   result = integrate_over_m_at_z(V->pvecback,
                                  V->pvectsz,
                                  V->pba,
@@ -8083,6 +8921,12 @@ else if ((V->ptsz->has_lens_lens_hf == _TRUE_) && (index_md == V->ptsz->index_md
                                  V->ppm,
                                  V->ppt,
                                  V->ptsz);
+
+if ((V->ptsz->has_hmf == _TRUE_) && (index_md == V->ptsz->index_md_hmf)){
+ // printf("returning integrated obver mass, intm = %.3e\n",result);
+ result *= (1.+V->pvectsz[V->ptsz->index_z])*get_volume_at_z(V->pvectsz[V->ptsz->index_z],V->pba);
+ return result;
+}
 
 
 // if computing 3d matter power spectrum P(k) of bispectrum:
@@ -8141,6 +8985,12 @@ if (((V->ptsz->has_pk_at_z_2h == _TRUE_) && (index_md == V->ptsz->index_md_pk_at
 
    return result;
  }
+
+ if ((V->ptsz->has_sz_rates == _TRUE_) && (index_md == V->ptsz->index_md_szrates)){
+   // if (V->ptsz->sz_verbose>0) printf("finnished mass integration for szrates.\n");
+   return result*get_volume_at_z(V->pvectsz[V->ptsz->index_z],V->pba);
+ }
+
 
 
   // exit(0);
@@ -8394,9 +9244,13 @@ if ((V->ptsz->has_sz_cov_N_N_hsv == _TRUE_) && (index_md == V->ptsz->index_md_co
 
 if  (((V->ptsz->has_cib_cib_1h == _TRUE_) && (index_md == V->ptsz->index_md_cib_cib_1h))
    ||((V->ptsz->has_cib_cib_2h == _TRUE_) && (index_md == V->ptsz->index_md_cib_cib_2h))
+   ||((V->ptsz->has_cib_shotnoise == _TRUE_) && (index_md == V->ptsz->index_md_cib_shotnoise))
     ){
+
+if (V->ptsz->use_maniyar_cib_model == 0){
 // cib redshift kernel, see McCarthy and Madhavacheril 2020
-result *= 1./(1.+z)*1./(1.+z)*pow(1./V->pvectsz[V->ptsz->index_chi2],2.);
+ result *= 1./(1.+z)*1./(1.+z)*pow(1./V->pvectsz[V->ptsz->index_chi2],2.);
+}
 }
 
 
@@ -8408,16 +9262,17 @@ if  (((V->ptsz->has_tSZ_cib_1h == _TRUE_) && (index_md == V->ptsz->index_md_tSZ_
     ||((V->ptsz->has_lens_cib_2h == _TRUE_) && (index_md == V->ptsz->index_md_lens_cib_2h))
     ||((V->ptsz->has_cib_monopole == _TRUE_) && (index_md == V->ptsz->index_md_cib_monopole))
     ){
-
+if (V->ptsz->use_maniyar_cib_model == 0){
   result *= 1./(1.+z)*pow(1./V->pvectsz[V->ptsz->index_chi2],1.);
+}
 }
 
 
 // else{
 
   // finally multiply by volume element Chi^2 dChi
-  result *= V->pvectsz[V->ptsz->index_chi2];
-  // printf("multiplying by volume\n");
+  // result *= V->pvectsz[V->ptsz->index_chi2];
+
 
   // integrate w.r.t ln(1+z); dz =  (1+z)dln(1+z)
   // volume element in units h^-3 Mpc^3
@@ -8427,8 +9282,13 @@ if  (((V->ptsz->has_tSZ_cib_1h == _TRUE_) && (index_md == V->ptsz->index_md_tSZ_
   // dChi = (c/H) *(1+z) dln(1+z) ---> this is used
   // dChi = (c/H) dz
   // d/dchi = H/c d/dz
-  double H_over_c_in_h_over_Mpc = V->pvecback[V->pba->index_bg_H]/V->pba->h;
-  result = (1.+V->pvectsz[V->ptsz->index_z])*result/H_over_c_in_h_over_Mpc;
+  // double H_over_c_in_h_over_Mpc = V->pvecback[V->pba->index_bg_H]/V->pba->h;
+  //
+  // printf("multiplying by volume %.3e %.3e\n",V->pvectsz[V->ptsz->index_chi2]/H_over_c_in_h_over_Mpc, get_volume_at_z(V->pvectsz[V->ptsz->index_z],V->pba));
+  // result = (1.+V->pvectsz[V->ptsz->index_z])*result/H_over_c_in_h_over_Mpc;
+
+  result *= (1.+V->pvectsz[V->ptsz->index_z])*get_volume_at_z(V->pvectsz[V->ptsz->index_z],V->pba);
+  // note : get_vol is c/H*chi2...dchi/dz*ch2
 
   if (isnan(result)||isinf(result)){
   printf("nan or inf in integrand redshift 1h\n");
@@ -8470,6 +9330,8 @@ int integrate_over_redshift(struct background * pba,
   double epsabs= ptsz->redshift_epsabs;
   int show_neval = ptsz->patterson_show_neval;
 
+
+// hhere put the things that do not need integration over z:
   int index_md = (int) Pvectsz[ptsz->index_md];
 if(_pk_at_z_1h_
 || _pk_at_z_2h_
@@ -8491,9 +9353,21 @@ if(_pk_at_z_1h_
 {
   r = integrand_redshift(log(1. + ptsz->z_for_pk_hm),params);
 }
+else if ( _szrates_ )
+{
+  if (ptsz->sz_verbose > 10) printf("evaluating rate at z = %.3e.\n",ptsz->szcat_z[(int)Pvectsz[ptsz->index_szrate]]);
+  if (ptsz->szcat_z[(int)Pvectsz[ptsz->index_szrate]] <= 0){
+    r = 1.; // contrinbutes to nothing to the lkl. since we take sum of ln(rates).
+}
+else {
+  r = integrand_redshift(log(1. + ptsz->szcat_z[(int)Pvectsz[ptsz->index_szrate]]),params);
+
+ if (r == 0.) r = 1e-300; // when snr cat is too high the integral becomes too small.
+}
+}
 else{
 
-  // printf("er = %.4e ea = %.4e\n",epsrel,epsabs);
+  // printf("z_min = %.4e z_max  = %.4e\n",z_min,z_max);
   r = Integrate_using_Patterson_adaptive(log(1. + z_min), log(1. + z_max),
                                          epsrel, epsabs,
                                          integrand_redshift,
@@ -9524,6 +10398,292 @@ else if ((int) pvectsz[ptsz->index_md] == ptsz->index_md_kSZ_kSZ_tSZ_3h){
     +r_m_b2y1*r_m_b1t2*r_m_b1t3*pk1*pk2
     +r_m_b1y1*r_m_b2t2*r_m_b1t3*pk3*pk1
     +r_m_b1y1*r_m_b1t2*r_m_b2t3*pk2*pk3;
+
+
+}
+
+
+
+
+  else if ((int) pvectsz[ptsz->index_md] == ptsz->index_md_tSZ_tSZ_tSZ_2h){
+  double r_m_11; // first part of redshift integrand
+  double r_m_21; // second part of redshift integrand
+  double r_m_12; // first part of redshift integrand
+  double r_m_22; // second part of redshift integrand
+  double r_m_13; // first part of redshift integrand
+  double r_m_23; // second part of redshift integrand
+
+
+
+  // r_m_11*r_m_21
+  pvectsz[ptsz->index_part_id_cov_hsv] = 1;
+  V.pvectsz = pvectsz;
+  params = &V;
+  r_m_11=Integrate_using_Patterson_adaptive(log(m_min), log(m_max),
+                                           epsrel, epsabs,
+                                           integrand_patterson_test,
+                                           params,ptsz->patterson_show_neval);
+
+
+
+   if (ptsz->M1SZ == ptsz->m_min_counter_terms)  {
+     double nmin = get_hmf_counter_term_nmin_at_z(pvectsz[ptsz->index_z],ptsz);
+     double bmin = get_hmf_counter_term_b1min_at_z(pvectsz[ptsz->index_z],ptsz)*nmin;
+     double I0 = integrand_patterson_test(log(ptsz->m_min_counter_terms),params);
+     double bmin_umin = bmin*I0/pvectsz[ptsz->index_hmf]/pvectsz[ptsz->index_halo_bias];
+     r_m_11 += bmin_umin;
+     // printf("counter terms done r_m_1\n");
+  }
+
+  pvectsz[ptsz->index_part_id_cov_hsv] = 2;
+  V.pvectsz = pvectsz;
+  params = &V;
+  r_m_21=Integrate_using_Patterson_adaptive(log(m_min), log(m_max),
+                                           epsrel, epsabs,
+                                           integrand_patterson_test,
+                                           params,ptsz->patterson_show_neval);
+
+   if (ptsz->M1SZ == ptsz->m_min_counter_terms)  {
+     double nmin = get_hmf_counter_term_nmin_at_z(pvectsz[ptsz->index_z],ptsz);
+     double bmin = get_hmf_counter_term_b1min_at_z(pvectsz[ptsz->index_z],ptsz)*nmin;
+     double I0 = integrand_patterson_test(log(ptsz->m_min_counter_terms),params);
+     double bmin_umin = bmin*I0/pvectsz[ptsz->index_hmf]/pvectsz[ptsz->index_halo_bias];
+     r_m_21 += bmin_umin;
+     // printf("counter terms done r_m_1\n");
+  }
+
+  // r_m_12*r_m_22
+  pvectsz[ptsz->index_part_id_cov_hsv] = 3;
+  V.pvectsz = pvectsz;
+  params = &V;
+  r_m_12=Integrate_using_Patterson_adaptive(log(m_min), log(m_max),
+                                           epsrel, epsabs,
+                                           integrand_patterson_test,
+                                           params,ptsz->patterson_show_neval);
+
+
+   if (ptsz->M1SZ == ptsz->m_min_counter_terms)  {
+     double nmin = get_hmf_counter_term_nmin_at_z(pvectsz[ptsz->index_z],ptsz);
+     double bmin = get_hmf_counter_term_b1min_at_z(pvectsz[ptsz->index_z],ptsz)*nmin;
+     double I0 = integrand_patterson_test(log(ptsz->m_min_counter_terms),params);
+     double bmin_umin = bmin*I0/pvectsz[ptsz->index_hmf]/pvectsz[ptsz->index_halo_bias];
+     r_m_12 += bmin_umin;
+     // printf("counter terms done r_m_1\n");
+  }
+
+
+  pvectsz[ptsz->index_part_id_cov_hsv] = 4;
+  V.pvectsz = pvectsz;
+  params = &V;
+  r_m_22=Integrate_using_Patterson_adaptive(log(m_min), log(m_max),
+                                           epsrel, epsabs,
+                                           integrand_patterson_test,
+                                           params,ptsz->patterson_show_neval);
+
+   if (ptsz->M1SZ == ptsz->m_min_counter_terms)  {
+     double nmin = get_hmf_counter_term_nmin_at_z(pvectsz[ptsz->index_z],ptsz);
+     double bmin = get_hmf_counter_term_b1min_at_z(pvectsz[ptsz->index_z],ptsz)*nmin;
+     double I0 = integrand_patterson_test(log(ptsz->m_min_counter_terms),params);
+     double bmin_umin = bmin*I0/pvectsz[ptsz->index_hmf]/pvectsz[ptsz->index_halo_bias];
+     r_m_22 += bmin_umin;
+     // printf("counter terms done r_m_1\n");
+  }
+
+  // r_m_13*r_m_23
+  pvectsz[ptsz->index_part_id_cov_hsv] = 5;
+  V.pvectsz = pvectsz;
+  params = &V;
+  r_m_13=Integrate_using_Patterson_adaptive(log(m_min), log(m_max),
+                                           epsrel, epsabs,
+                                           integrand_patterson_test,
+                                           params,ptsz->patterson_show_neval);
+
+   if (ptsz->M1SZ == ptsz->m_min_counter_terms)  {
+     double nmin = get_hmf_counter_term_nmin_at_z(pvectsz[ptsz->index_z],ptsz);
+     double bmin = get_hmf_counter_term_b1min_at_z(pvectsz[ptsz->index_z],ptsz)*nmin;
+     double I0 = integrand_patterson_test(log(ptsz->m_min_counter_terms),params);
+     double bmin_umin = bmin*I0/pvectsz[ptsz->index_hmf]/pvectsz[ptsz->index_halo_bias];
+     r_m_13 += bmin_umin;
+     // printf("counter terms done r_m_1\n");
+  }
+
+
+  pvectsz[ptsz->index_part_id_cov_hsv] = 6;
+  V.pvectsz = pvectsz;
+  params = &V;
+  r_m_23=Integrate_using_Patterson_adaptive(log(m_min), log(m_max),
+                                           epsrel, epsabs,
+                                           integrand_patterson_test,
+                                           params,ptsz->patterson_show_neval);
+
+
+   if (ptsz->M1SZ == ptsz->m_min_counter_terms)  {
+     double nmin = get_hmf_counter_term_nmin_at_z(pvectsz[ptsz->index_z],ptsz);
+     double bmin = get_hmf_counter_term_b1min_at_z(pvectsz[ptsz->index_z],ptsz)*nmin;
+     double I0 = integrand_patterson_test(log(ptsz->m_min_counter_terms),params);
+     double bmin_umin = bmin*I0/pvectsz[ptsz->index_hmf]/pvectsz[ptsz->index_halo_bias];
+     r_m_23 += bmin_umin;
+     // printf("counter terms done r_m_1\n");
+  }
+
+
+  int index_l = (int) pvectsz[ptsz->index_multipole];
+  double l1 = ptsz->ell[index_l];
+  double l2 = ptsz->bispectrum_lambda_k2*ptsz->ell[index_l];
+  double l3 = ptsz->bispectrum_lambda_k3*ptsz->ell[index_l];
+  double pk1 = get_pk_lin_at_k_and_z((l1+0.5)/chi,pvectsz[ptsz->index_z],pba,ppm,pnl,ptsz);
+  double pk2 = get_pk_lin_at_k_and_z((l2+0.5)/chi,pvectsz[ptsz->index_z],pba,ppm,pnl,ptsz);
+  double pk3 = get_pk_lin_at_k_and_z((l3+0.5)/chi,pvectsz[ptsz->index_z],pba,ppm,pnl,ptsz);
+
+
+  r = pk3*r_m_11*r_m_21  +  pk2*r_m_12*r_m_22  +  pk1*r_m_13*r_m_23;
+
+  }
+
+
+else if ((int) pvectsz[ptsz->index_md] == ptsz->index_md_tSZ_tSZ_tSZ_3h){
+
+  double r_m_b1y1;
+  double r_m_b1y2;
+  double r_m_b1y3;
+
+  double r_m_b2y1;
+  double r_m_b2y2;
+  double r_m_b2y3;
+
+  pvectsz[ptsz->index_part_id_cov_hsv] = 1;
+  V.pvectsz = pvectsz;
+  params = &V;
+  r_m_b1y1=Integrate_using_Patterson_adaptive(log(m_min), log(m_max),
+                                           epsrel, epsabs,
+                                           integrand_patterson_test,
+                                           params,ptsz->patterson_show_neval);
+
+   if (ptsz->M1SZ == ptsz->m_min_counter_terms)  {
+     double nmin = get_hmf_counter_term_nmin_at_z(pvectsz[ptsz->index_z],ptsz);
+     double bmin = get_hmf_counter_term_b1min_at_z(pvectsz[ptsz->index_z],ptsz)*nmin;
+     double I0 = integrand_patterson_test(log(ptsz->m_min_counter_terms),params);
+     double bmin_umin = bmin*I0/pvectsz[ptsz->index_hmf]/pvectsz[ptsz->index_halo_bias];
+     r_m_b1y1 += bmin_umin;
+     // printf("counter terms done r_m_1\n");
+  }
+
+  pvectsz[ptsz->index_part_id_cov_hsv] = 2;
+  V.pvectsz = pvectsz;
+  params = &V;
+  r_m_b1y2=Integrate_using_Patterson_adaptive(log(m_min), log(m_max),
+                                           epsrel, epsabs,
+                                           integrand_patterson_test,
+                                           params,ptsz->patterson_show_neval);
+
+   if (ptsz->M1SZ == ptsz->m_min_counter_terms)  {
+     double nmin = get_hmf_counter_term_nmin_at_z(pvectsz[ptsz->index_z],ptsz);
+     double bmin = get_hmf_counter_term_b1min_at_z(pvectsz[ptsz->index_z],ptsz)*nmin;
+     double I0 = integrand_patterson_test(log(ptsz->m_min_counter_terms),params);
+     double bmin_umin = bmin*I0/pvectsz[ptsz->index_hmf]/pvectsz[ptsz->index_halo_bias];
+     r_m_b1y2 += bmin_umin;
+     // printf("counter terms done r_m_1\n");
+  }
+
+
+  pvectsz[ptsz->index_part_id_cov_hsv] = 3;
+  V.pvectsz = pvectsz;
+  params = &V;
+  r_m_b1y3=Integrate_using_Patterson_adaptive(log(m_min), log(m_max),
+                                           epsrel, epsabs,
+                                           integrand_patterson_test,
+                                           params,ptsz->patterson_show_neval);
+
+   if (ptsz->M1SZ == ptsz->m_min_counter_terms)  {
+     double nmin = get_hmf_counter_term_nmin_at_z(pvectsz[ptsz->index_z],ptsz);
+     double bmin = get_hmf_counter_term_b1min_at_z(pvectsz[ptsz->index_z],ptsz)*nmin;
+     double I0 = integrand_patterson_test(log(ptsz->m_min_counter_terms),params);
+     double bmin_umin = bmin*I0/pvectsz[ptsz->index_hmf]/pvectsz[ptsz->index_halo_bias];
+     r_m_b1y3 += bmin_umin;
+     // printf("counter terms done r_m_1\n");
+  }
+
+
+  pvectsz[ptsz->index_part_id_cov_hsv] = 4;
+  V.pvectsz = pvectsz;
+  params = &V;
+  r_m_b2y1=Integrate_using_Patterson_adaptive(log(m_min), log(m_max),
+                                           epsrel, epsabs,
+                                           integrand_patterson_test,
+                                           params,ptsz->patterson_show_neval);
+
+   if (ptsz->M1SZ == ptsz->m_min_counter_terms)  {
+     double nmin = get_hmf_counter_term_nmin_at_z(pvectsz[ptsz->index_z],ptsz);
+     double bmin = get_hmf_counter_term_b1min_at_z(pvectsz[ptsz->index_z],ptsz)*nmin;
+     double I0 = integrand_patterson_test(log(ptsz->m_min_counter_terms),params);
+     double bmin_umin = bmin*I0/pvectsz[ptsz->index_hmf]/pvectsz[ptsz->index_halo_bias];
+     r_m_b2y1 += bmin_umin;
+     // printf("counter terms done r_m_1\n");
+  }
+
+  pvectsz[ptsz->index_part_id_cov_hsv] = 5;
+  V.pvectsz = pvectsz;
+  params = &V;
+  r_m_b2y2=Integrate_using_Patterson_adaptive(log(m_min), log(m_max),
+                                           epsrel, epsabs,
+                                           integrand_patterson_test,
+                                           params,ptsz->patterson_show_neval);
+
+   if (ptsz->M1SZ == ptsz->m_min_counter_terms)  {
+     double nmin = get_hmf_counter_term_nmin_at_z(pvectsz[ptsz->index_z],ptsz);
+     double bmin = get_hmf_counter_term_b1min_at_z(pvectsz[ptsz->index_z],ptsz)*nmin;
+     double I0 = integrand_patterson_test(log(ptsz->m_min_counter_terms),params);
+     double bmin_umin = bmin*I0/pvectsz[ptsz->index_hmf]/pvectsz[ptsz->index_halo_bias];
+     r_m_b2y2 += bmin_umin;
+     // printf("counter terms done r_m_1\n");
+  }
+
+
+  pvectsz[ptsz->index_part_id_cov_hsv] = 6;
+  V.pvectsz = pvectsz;
+  params = &V;
+  r_m_b2y3=Integrate_using_Patterson_adaptive(log(m_min), log(m_max),
+                                           epsrel, epsabs,
+                                           integrand_patterson_test,
+                                           params,ptsz->patterson_show_neval);
+
+   if (ptsz->M1SZ == ptsz->m_min_counter_terms)  {
+     double nmin = get_hmf_counter_term_nmin_at_z(pvectsz[ptsz->index_z],ptsz);
+     double bmin = get_hmf_counter_term_b2min_at_z(pvectsz[ptsz->index_z],ptsz)*nmin;
+     double I0 = integrand_patterson_test(log(ptsz->m_min_counter_terms),params);
+     double bmin_umin = bmin*I0/pvectsz[ptsz->index_hmf]/pvectsz[ptsz->index_halo_bias_b2];
+     r_m_b2y3 += bmin_umin;
+     // printf("counter terms done r_m_1\n");
+  }
+
+
+
+  int index_l = (int) pvectsz[ptsz->index_multipole];
+  double l1 = ptsz->ell[index_l];
+  double l2 = ptsz->bispectrum_lambda_k2*ptsz->ell[index_l];
+  double l3 = ptsz->bispectrum_lambda_k3*ptsz->ell[index_l];
+  double k1 = (l1 + 0.5)/chi;
+  double k2 = (l2 + 0.5)/chi;
+  double k3 = (l3 + 0.5)/chi;
+  double pk1 = 0.;
+  double pk2 = 0.;
+  double pk3 = 0.;
+
+  pk1 = get_pk_lin_at_k_and_z(k1,pvectsz[ptsz->index_z],pba,ppm,pnl,ptsz);
+  pk2 = get_pk_lin_at_k_and_z(k2,pvectsz[ptsz->index_z],pba,ppm,pnl,ptsz);
+  pk3 = get_pk_lin_at_k_and_z(k3,pvectsz[ptsz->index_z],pba,ppm,pnl,ptsz);
+
+  double f2_123 = bispectrum_f2_kernel(k1,k2,k3);
+  double f2_312 = bispectrum_f2_kernel(k3,k1,k2);
+  double f2_231 = bispectrum_f2_kernel(k2,k3,k1);
+
+  r = 2.*r_m_b1y1*r_m_b1y2*r_m_b1y3*f2_123*pk1*pk2
+    +2.*r_m_b1y1*r_m_b1y2*r_m_b1y3*f2_312*pk3*pk1
+    +2.*r_m_b1y1*r_m_b1y2*r_m_b1y3*f2_231*pk2*pk3
+
+    +r_m_b1y1*r_m_b1y2*r_m_b2y3*pk1*pk2
+    +r_m_b1y1*r_m_b2y2*r_m_b1y3*pk3*pk1
+    +r_m_b2y1*r_m_b1y2*r_m_b1y3*pk2*pk3;
 
 
 }
@@ -10768,7 +11928,7 @@ if (isnan(r) || isinf(r)){
   pk3 = get_pk_lin_at_k_and_z(ptsz->bispectrum_lambda_k3*k,pvectsz[ptsz->index_z],pba,ppm,pnl,ptsz);
 
   r = pk3*r_m_b1g3*r_m_b1t1t2
-     +pk2*r_m_b1t1g3*r_m_b1t2;
+     +pk2*r_m_b1t1g3*r_m_b1t2
      +pk1*r_m_b1t1*r_m_b1t2g3;
 
   }
@@ -11138,7 +12298,7 @@ if (ptsz->check_consistency_conditions == 1){
   pk3 = get_pk_lin_at_k_and_z(ptsz->bispectrum_lambda_k3*k,pvectsz[ptsz->index_z],pba,ppm,pnl,ptsz);
 
   r = pk3*r_m_b1g3*r_m_b1t1t2
-     +pk2*r_m_b1t1g3*r_m_b1t2;
+     +pk2*r_m_b1t1g3*r_m_b1t2
      +pk1*r_m_b1t1*r_m_b1t2g3;
 
   }
@@ -11343,9 +12503,23 @@ if (ptsz->check_consistency_conditions == 1){
 r = r_m_1*r_m_2;
   }
 
+// dont apply halo model consistency
+else if(((int) pvectsz[ptsz->index_md] == ptsz->index_md_szrates)
+|| ((int) pvectsz[ptsz->index_md] == ptsz->index_md_hmf)
+){
+  // if (ptsz->sz_verbose>0) printf("starting mass integral for szrate id = %d.\n", (int)pvectsz[ptsz->index_szrate]);
+  // printf("integrating over mass m_min = %.3e m_max = %.3e\n",m_min,m_max);
+  r=Integrate_using_Patterson_adaptive(log(m_min), log(m_max),
+                                       epsrel, epsabs,
+                                       integrand_patterson_test,
+                                       params,ptsz->patterson_show_neval);
 
+
+// printf("found r = %.5e\n",r);
+}
 
   else {
+
   r=Integrate_using_Patterson_adaptive(log(m_min), log(m_max),
                                        epsrel, epsabs,
                                        integrand_patterson_test,
@@ -11416,12 +12590,13 @@ if (( (int) pvectsz[ptsz->index_md] == ptsz->index_md_2halo)
  || ((int) pvectsz[ptsz->index_md] == ptsz->index_md_gallens_gallens_2h)
  || ((int) pvectsz[ptsz->index_md] == ptsz->index_md_gallens_lens_2h)
 ){
+  // printf("squaring result\n");
  pvectsz[ptsz->index_integral_over_m] = r*r;
  }
 else
 pvectsz[ptsz->index_integral_over_m] = r;
 
-
+// printf("pvectsz[ptsz->index_integral_over_m] = %.3e\n",pvectsz[ptsz->index_integral_over_m]);
 
 //}
 
@@ -11683,6 +12858,9 @@ for (index_patches=0;
      index_patches<ptsz->nskyfracs;
      index_patches++)
      sum_skyfracs += ptsz->skyfracs[index_patches];
+     if (ptsz->sz_verbose >= 1){
+       printf("sum_skyfracs =  %.3e\n",sum_skyfracs);}
+      ptsz->fsky_from_skyfracs = sum_skyfracs;
 
 for (index_thetas = 0; index_thetas<ptsz->nthetas; index_thetas ++){
   ptsz->sky_averaged_ylims[index_thetas] = 0.;
@@ -11822,6 +13000,74 @@ int read_SO_noise(struct tszspectrum * ptsz){
 
     return  _SUCCESS_;
     }
+
+
+int read_sz_catalog(struct tszspectrum * ptsz){
+
+      char line[_LINE_LENGTH_MAX_];
+      FILE *process;
+      int n_data_guess, n_data = 0;
+      //double *thetas = NULL,
+      double *tmp = NULL;
+      double this_lnx,this_lny,this_lnz;
+      int status;
+
+      n_data = 0;
+      n_data_guess = 100;
+      ptsz->szcat_z   = (double *)malloc(n_data_guess*sizeof(double));
+      ptsz->szcat_snr   = (double *)malloc(n_data_guess*sizeof(double));
+
+      // char Filepath[_ARGUMENT_LENGTH_MAX_];
+      // sprintf(Filepath,
+      //         "%s%s",
+      //         // "%s%s%s",
+      //         "cat ",
+      //         // ptsz->path_to_class,
+      //         "/sz_auxiliary_files/SO_files/SOSim_3freq_small_Qfit_comp_test.txt");
+      //
+      // process = popen(Filepath, "r");
+      class_open(process,"sz_auxiliary_files/SZ_cat.txt", "r",ptsz->error_message);
+
+      while (fgets(line, sizeof(line)-1, process) != NULL) {
+        sscanf(line, "%lf %lf %lf", &this_lnx, &this_lny, &this_lnz);
+
+        if((n_data+1) > n_data_guess) {
+          n_data_guess *= 2;
+          tmp = (double *)realloc(ptsz->szcat_z,   n_data_guess*sizeof(double));
+          class_test(tmp == NULL,
+                     ptsz->error_message,
+                     "Error allocating memory to read szcat_z.\n");
+          ptsz->szcat_z = tmp;
+          tmp = (double *)realloc(ptsz->szcat_snr,   n_data_guess*sizeof(double));
+          class_test(tmp == NULL,
+                     ptsz->error_message,
+                     "Error allocating memory to read szcat_snr.\n");
+          ptsz->szcat_snr = tmp;
+        };
+
+
+        /* Store */
+        ptsz->szcat_z[n_data]   = this_lnx;
+        ptsz->szcat_snr[n_data]   = this_lnz;
+        n_data++;
+      }
+
+      // status = pclose(process);
+      status = fclose(process);
+      class_test(status != 0.,
+                 ptsz->error_message,
+                 "The attempt to launch the external command was unsuccessful. "
+                 "Try doing it by hand to check for errors.");
+
+      ptsz->szcat_size = n_data;
+
+      ///////////////////////////end read Q file
+
+
+  return  _SUCCESS_;
+  }
+
+
 
 
 int tabulate_ng_bias_contribution_at_z_and_k(struct background * pba,
@@ -14036,6 +15282,171 @@ return _SUCCESS_;
 
 
 
+int tabulate_n5k_F1(struct background * pba,
+                    struct nonlinear * pnl,
+                    struct primordial * ppm,
+                    struct tszspectrum * ptsz){
+
+printf("tabulating n5k_F\n");
+class_alloc(ptsz->array_n5k_F1_l,sizeof(int *)*ptsz->n_l_n5k,ptsz->error_message);
+class_alloc(ptsz->array_n5k_F1_k,sizeof(double *)*ptsz->n_k_n5k,ptsz->error_message);
+// class_alloc(ptsz->array_n5k_F1_F,sizeof(double *)*ptsz->n_l_n5k*ptsz->n_k_n5k,ptsz->error_message);
+class_alloc(ptsz->array_n5k_F1_F,sizeof(double *)*ptsz->n_l_n5k,ptsz->error_message);
+
+
+int index_k, index_l;
+double r;
+// const int Nl_n5k = ptsz->n_l_n5k;
+if (ptsz->n_l_n5k != 103)
+  {
+    printf("wrong l dimension for n5k\n");
+    exit(0);
+  }
+// printf("%d ",Nl_n5k);
+// exit(0);
+double l_n5k[103] = {   2.,    3.,    4.,    5.,    6.,    7.,    8.,    9.,   10.,
+         11.,   12.,   13.,   14.,   15.,   16.,   17.,   18.,   19.,
+         20.,   21.,   23.,   24.,   25.,   27.,   28.,   30.,   32.,
+         33.,   35.,   37.,   39.,   42.,   44.,   46.,   49.,   52.,
+         55.,   58.,   61.,   64.,   68.,   72.,   76.,   80.,   85.,
+         90.,   95.,  100.,  106.,  111.,  118.,  124.,  131.,  139.,
+        146.,  155.,  163.,  172.,  182.,  192.,  203.,  215.,  227.,
+        239.,  253.,  267.,  282.,  298.,  314.,  332.,  350.,  370.,
+        391.,  413.,  436.,  460.,  486.,  513.,  542.,  572.,  604.,
+        638.,  673.,  711.,  751.,  793.,  837.,  884.,  933.,  986.,
+       1041., 1099., 1160., 1225., 1294., 1366., 1443., 1523., 1608.,
+       1698., 1793., 1894., 2000.};
+
+// double l_min = 2;
+// double l_max = 2e3;
+for (index_l=0; index_l<ptsz->n_l_n5k; index_l++)
+        {
+          // double lp =log(l_min)
+          //           +index_l*(log(l_max)-log(l_min))
+          //           /(ptsz->n_l_n5k-1.); // log(l)
+          // ptsz->array_n5k_F1_l[index_l] = (int) exp(lp);
+          ptsz->array_n5k_F1_l[index_l] = l_n5k[index_l];
+
+        }
+
+double k_min = 1.e-4;
+double k_max = 1e2;
+for (index_k=0; index_k<ptsz->n_k_n5k; index_k++)
+        {
+
+          ptsz->array_n5k_F1_k[index_k] =
+                                          log(k_min)
+                                          +index_k*(log(k_max)-log(k_min))
+                                          /(ptsz->n_k_n5k-1.); // log(l)
+        }
+
+double * pvecback;
+double * pvectsz;
+
+double tstart, tstop;
+int abort;
+/* initialize error management flag */
+abort = _FALSE_;
+/* beginning of parallel region */
+
+int number_of_threads= 1;
+#ifdef _OPENMP
+#pragma omp parallel
+  {
+    number_of_threads = omp_get_num_threads();
+  }
+#endif
+
+#pragma omp parallel \
+shared(abort,\
+pba,ptsz,ppm,pnl,k_max,k_min)\
+private(tstart, tstop,index_k,index_l,pvecback,pvectsz,r) \
+num_threads(number_of_threads)
+{
+
+#ifdef _OPENMP
+  tstart = omp_get_wtime();
+#endif
+
+
+ class_alloc_parallel(pvectsz,ptsz->tsz_size*sizeof(double),ptsz->error_message);
+   int i;
+   for(i = 0; i<ptsz->tsz_size;i++) pvectsz[i] = 0.;
+
+ class_alloc_parallel(pvecback,pba->bg_size*sizeof(double),ptsz->error_message);
+
+
+ // #pragma omp for collapse(2)
+ // for (index_l=0; index_l<ptsz->n_l_n5k; index_l++)
+ // {
+ // for (index_k=0; index_k<ptsz->n_k_n5k; index_k++)
+ //   {
+
+#pragma omp for schedule (dynamic)
+for (index_l=0; index_l<ptsz->n_l_n5k; index_l++)
+{
+#pragma omp flush(abort)
+
+double sumk = 0.;
+int l = ptsz->array_n5k_F1_l[index_l];
+for (index_k=0; index_k<ptsz->n_k_n5k; index_k++)
+  {
+
+          double k = exp(ptsz->array_n5k_F1_k[index_k]);
+          // int l = ptsz->array_n5k_F1_l[index_l];
+
+
+          double chi_min = 1e0;//ptsz->l_min_samp_fftw; //precision parameter
+          double chi_max = 7e3;//ptsz->l_max_samp_fftw; //precision parameter
+
+          const int N = ptsz->N_samp_fftw; //precision parameter
+          int ichi;
+          double chi[N], Pchi[N];
+          for (ichi=0; ichi<N; ichi++){
+            chi[ichi] =  exp(log(chi_min)+ichi/(N-1.)*(log(chi_max)-log(chi_min)));
+            double zchi = get_n5k_z_of_chi(chi[ichi],ptsz);
+            Pchi[ichi] = sqrt(get_n5k_pk_at_z_and_k(zchi,k,ptsz))*get_n5k_cl_K1_at_chi(chi[ichi],ptsz);
+            // printf("Pchi = %.3e\n",Pchi[ichi]);
+          }
+
+          double chit[N], Pchit[N];
+        /* Compute the function
+         *   \xi_l^m(r) = \int_0^\infty \frac{dk}{2\pi^2} k^m j_l(kr) P(k)
+         * Note that the usual 2-point correlation function xi(r) is just xi_0^2(r)
+         * in this notation.  The input k-values must be logarithmically spaced.  The
+         * resulting xi_l^m(r) will be evaluated at the dual r-values
+         *   r[0] = 1/k[N-1], ..., r[N-1] = 1/k[0]. */
+          fftlog_ComputeXiLMsloz(l, 0, N, chi,  Pchi, chit, Pchit,ptsz);
+          double F1 = 2.*_PI_*_PI_*pwl_value_1d(N,chit,Pchit,k);
+          fftlog_ComputeXiLMsloz(l, 0, N, chi,  Pchi, chit, Pchit,ptsz);
+          double F2 = 2.*_PI_*_PI_*pwl_value_1d(N,chit,Pchit,k);
+          double intk = F1*F2*k*k;
+          double dlk = (log(k_max)-log(k_min))/(ptsz->n_k_n5k-1.);
+          sumk +=  intk*k*dlk;
+
+       }
+    // printf("ell = %d sumk = %.3e\n",l,sumk);
+    ptsz->array_n5k_F1_F[index_l] = sumk*2./_PI_;
+
+     }
+     #ifdef _OPENMP
+       tstop = omp_get_wtime();
+       if (ptsz->sz_verbose > 0)
+         printf("In %s: time spent in parallel region n5k (loop over l's) = %e s for thread %d\n",
+                __func__,tstop-tstart,omp_get_thread_num());
+     #endif
+ free(pvecback);
+ free(pvectsz);
+}
+if (abort == _TRUE_) return _FAILURE_;
+//end of parallel region
+return _SUCCESS_;
+    }
+
+
+
+
+
 int tabulate_psi_b2t(struct background * pba,
                     struct nonlinear * pnl,
                     struct primordial * ppm,
@@ -15392,9 +16803,25 @@ double integrand_patterson_L_sat(double lnM_sub, void *p){
   double z = V->z;
   double M_host = V->M_host;
 
-  double L_gal_at_nu = evaluate_galaxy_luminosity(z, M_sub, nu, V->ptsz);
+
+  double L_gal_at_nu;
+if (V->ptsz->use_maniyar_cib_model){
+double sfrI;
+double sfrII;
+sfrI = evaluate_galaxy_luminosity(z, M_sub, nu, V->ptsz);
+sfrII =  evaluate_galaxy_luminosity(z, M_host*(1.-V->ptsz->maniyar_cib_fsub), nu, V->ptsz)*M_sub/(M_host*(1.-V->ptsz->maniyar_cib_fsub));
+
+L_gal_at_nu = r8_min(sfrI,sfrII);
+
+}
+else{
+L_gal_at_nu = evaluate_galaxy_luminosity(z, M_sub, nu, V->ptsz);
+}
+
   double dNdlnMs = subhalo_hmf_dndlnMs(M_host,M_sub,V->ptsz);
   double result = L_gal_at_nu*dNdlnMs;
+
+  // printf("result Lsat integrand = %.5e\n",result);
 
 
   return result;
@@ -15409,6 +16836,7 @@ if (
     + ptsz->has_tSZ_cib_2h
     + ptsz->has_cib_cib_1h
     + ptsz->has_cib_monopole
+    + ptsz->has_cib_shotnoise
     + ptsz->has_dcib0dz
     + ptsz->has_cib_cib_2h
     + ptsz->has_lens_cib_1h
@@ -15819,7 +17247,7 @@ if (ptsz->need_sigma == 0)
 // printf("tabulating sigma\n");
 
    // bounds array of radii for sigma computations:
-   ptsz->logR1SZ = log(pow(3.*0.1*1e0/(4*_PI_*ptsz->Omega_m_0*ptsz->Rho_crit_0),1./3.));
+   ptsz->logR1SZ = log(pow(3.*0.1*1e7/(4*_PI_*ptsz->Omega_m_0*ptsz->Rho_crit_0),1./3.));
    ptsz->logR2SZ = log(pow(3.*10.*1e17/(4*_PI_*ptsz->Omega_m_0*ptsz->Rho_crit_0),1./3.));
 
 
@@ -15919,10 +17347,13 @@ num_threads(number_of_threads)
   //                      ptsz->error_message);
 
 
-#pragma omp for schedule (dynamic)
+// #pragma omp for schedule (dynamic)
+#pragma omp for collapse(2)
   for (index_R=0; index_R<ptsz->ndimSZ; index_R++)
   {
-#pragma omp flush(abort)
+  for (index_z=0; index_z<ptsz->n_arraySZ; index_z++)
+  {
+// #pragma omp flush(abort)
 
     double sigma_var,dsigma_var;
     ptsz->array_radius[index_R] =
@@ -15930,8 +17361,8 @@ num_threads(number_of_threads)
                                 +index_R*(logR_max-logR_min)
                                 /(ptsz->ndimSZ-1.); //log(R)
 
-    for (index_z=0; index_z<ptsz->n_arraySZ; index_z++)
-    {
+    // for (index_z=0; index_z<ptsz->n_arraySZ; index_z++)
+    // {
       // ptsz->array_redshift[index_z] =
       //                                 log(1.+z_min)
       //                                 +index_z*(log(1.+z_max)-log(1.+z_min))
@@ -16029,7 +17460,7 @@ for (index_R=0; index_R<ptsz->ndimSZ; index_R++)
     // exp(ptsz->array_redshift[index_z])-1.,
     // ptsz->array_sigma_at_z_and_R[index_z_R]);
     ptsz->array_dsigma2dR_at_z_and_R[index_z_R]=array_dsigma2dR_at_z_and_R[index_z][index_R];
-    double dsigma = ptsz->array_sigma_at_z_and_R[index_z_R];
+    double dsigma = ptsz->array_dsigma2dR_at_z_and_R[index_z_R];
     if (isnan(sigma+dsigma) || isinf(sigma+dsigma) ){
      printf("z=%.3e R=%.3e sigma=%.3e dsigma2dR=%.3e\n",exp(ptsz->array_redshift[index_z]),exp(ptsz->array_radius[index_R]),sigma,dsigma);
      exit(0);
@@ -16302,6 +17733,10 @@ int tabulate_dndlnM(struct background * pba,
   // z_min = r8_min(z_min,ptsz->z_for_pk_hm);
   double z_max = r8_max(ptsz->z2SZ,ptsz->z2SZ_dndlnM);
   // z_max = r8_min(z_max,ptsz->z_for_pk_hm);
+
+  if (ptsz->sz_verbose>10){
+  printf("tabulating dndlnM between z_min=%.5e and z_max=%.5e\n",z_min,z_max);
+}
   int index_z;
 
   double tstart, tstop;
@@ -17823,7 +19258,7 @@ double nod_2_y = (array_nl_index_at_z_and_k[index_z][lnx_zeros[id_zero_next+2]] 
       // }
 
       // else{
-      if (nl_exact<array_nl_no_wiggles_interp & (ptsz->ln_k_for_tSZ[index_k] >ptsz->ln_k_for_tSZ[lnx_zeros[id_zero]] - (nod_2_x-nod_1_x)))
+      if ((nl_exact<array_nl_no_wiggles_interp) & (ptsz->ln_k_for_tSZ[index_k] >ptsz->ln_k_for_tSZ[lnx_zeros[id_zero]] - (nod_2_x-nod_1_x)))
       array_nl_no_wiggles = array_nl_no_wiggles_interp;
       else
       array_nl_no_wiggles = nl_exact;
@@ -18640,6 +20075,9 @@ double get_dndlnM_at_z_and_M(double z_asked, double m_asked, struct tszspectrum 
 double get_m200m_to_m500c_at_z_and_M(double z_asked, double m_asked, struct tszspectrum * ptsz){
   double z = log(1.+z_asked);
   double m = log(m_asked);
+  // printf("ok\n");
+
+
  return exp(pwl_interp_2d(ptsz->n_z_dndlnM,
                           ptsz->n_m_dndlnM,
                           ptsz->array_ln_1pz_m200m_to_m500c,
@@ -18648,6 +20086,7 @@ double get_m200m_to_m500c_at_z_and_M(double z_asked, double m_asked, struct tszs
                           1,
                           &z,
                           &m));
+// return 0.;
 }
 
 
