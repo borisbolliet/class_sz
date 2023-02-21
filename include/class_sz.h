@@ -1196,15 +1196,6 @@ struct tszspectrum {
   int use_bg_eff_in_ksz2g_eff;
 
   int hm_consistency;
-
-  int use_class_sz_fast_mode;
-  double * array_lnk;
-  double * array_pknl_at_z_and_k;
-  double * array_pkl_at_z_and_k;
-
-  // int cszfast_pk_grid_nk;
-  // int cszfast_pk_grid_nz;
-
   int check_consistency_conditions;
 
   // noise curve for cov(y,y)
@@ -1373,6 +1364,16 @@ struct tszspectrum {
   double alpha_z_xc_B12;
   double alpha_z_beta_B12;
 
+  // B.H.
+  double mcut_B12;
+  double alphap_m_P0_B12;
+  double alphap_m_xc_B12;
+  double alphap_m_beta_B12;
+
+  double alpha_c_P0_B12;
+  double alpha_c_xc_B12;
+  double alpha_c_beta_B12;
+
   // Battaglia density profile:
   double A_rho0;
   double A_alpha;
@@ -1388,6 +1389,16 @@ struct tszspectrum {
 
   double gamma_B16;
   double xc_B16;
+
+  // B.H.
+  double mcut;
+  double alphap_m_rho0;
+  double alphap_m_alpha;
+  double alphap_m_beta;
+
+  double alpha_c_rho0;
+  double alpha_c_alpha;
+  double alpha_c_beta;
 
 
 // JCH
@@ -1899,17 +1910,6 @@ double * steps_m;
 extern "C" {
 #endif
 
-
-int class_sz_cosmo_init(struct background * pba,
-                         struct thermo * pth,
-                         struct perturbs * ppt,
-                         struct nonlinear * pnl,
-                         struct primordial * ppm,
-                         struct spectra * psp,
-                         struct lensing * ple,
-                         struct tszspectrum * ptsz,
-                         struct precision * ppr);
-
 int szpowerspectrum_init(struct background * pba,
                          struct thermo * pth,
                          struct perturbs * ppt,
@@ -2071,11 +2071,6 @@ double get_pk_lin_at_k_and_z(double k, double z,
                           struct primordial * ppm,
                           struct nonlinear * pnl,
                           struct tszspectrum * ptsz);
-double get_pk_lin_at_k_and_z_fast(double k, double z,
-                          struct background * pba,
-                          struct primordial * ppm,
-                          struct nonlinear * pnl,
-                          struct tszspectrum * ptsz);
 
 double get2_pk_lin_at_k_and_z(//double * pvecback,//double * pvectsz,
   double * r,double k, double z,
@@ -2088,12 +2083,7 @@ double get_pk_nonlin_at_k_and_z(double k, double z,
                           struct primordial * ppm,
                           struct nonlinear * pnl,
                           struct tszspectrum * ptsz);
-                          
-double get_pk_nonlin_at_k_and_z_fast(double k, double z,
-                          struct background * pba,
-                          struct primordial * ppm,
-                          struct nonlinear * pnl,
-                          struct tszspectrum * ptsz);
+
 
  int evaluate_pk_at_ell_plus_one_half_over_chi(double * pvecback,
                                               double * pvectsz,
@@ -2169,9 +2159,6 @@ int tabulate_gas_pressure_profile_gNFW(struct background * pba,
 
 int tabulate_gas_pressure_profile_B12(struct background * pba,
                                   struct tszspectrum * ptsz);
-
-int tabulate_gas_pressure_profile_B12_fft(struct background * pba,
-                                          struct tszspectrum * ptsz);
 
 double evaluate_mean_galaxy_number_density_at_z(double z,
                                                 struct tszspectrum * ptsz);
@@ -2539,6 +2526,32 @@ double get_gas_profile_at_x_M_z_b16_200c(double x_asked,
                                          struct background * pba,
                                          struct tszspectrum * ptsz);
 
+// B.H.
+double get_gas_profile_at_x_M_c_z_break_b16_200c(double x_asked,
+						 double m_asked,
+						 double c_asked,
+						 double z_asked,
+						 double A_rho,
+						 double A_alpha,
+						 double A_beta,
+						 double alpha_m_rho0,
+						 double alpha_m_alpha,
+						 double alpha_m_beta,
+						 double alpha_z_rho0,
+						 double alpha_z_alpha,
+						 double alpha_z_beta,
+						 double mcut,
+						 double alphap_m_rho0,
+						 double alphap_m_alpha,
+						 double alphap_m_beta,
+						 double alpha_c_rho0,
+						 double alpha_c_alpha,
+						 double alpha_c_beta,
+						 double gamma,
+						 double xc,
+						 struct background * pba,
+						 struct tszspectrum * ptsz);
+
 
 double get_second_order_bias_at_z_and_nu(double z,
                                          double nu,
@@ -2612,6 +2625,32 @@ double get_pressure_P_over_P_delta_at_x_M_z_b12_200c(double x_asked,
                                                      double gamma,
                                                      struct background * pba,
                                                      struct tszspectrum * tsz);
+
+// B.H.
+double get_pressure_P_over_P_delta_at_x_M_c_z_break_b12_200c(double x_asked,
+							     double m_asked,
+							     double c_asked,
+							     double z_asked,
+							     double A_P0,
+							     double A_xc,
+							     double A_beta,
+							     double alpha_m_P0,
+							     double alpha_m_xc,
+							     double alpha_m_beta,
+							     double alpha_z_P0,
+							     double alpha_z_xc,
+							     double alpha_z_beta,
+							     double mcut,
+							     double alphap_m_P0,
+							     double alphap_m_xc,
+							     double alphap_m_beta,
+							     double alpha_c_P0,
+							     double alpha_c_xc,
+							     double alpha_c_beta,
+							     double alpha,
+							     double gamma,
+							     struct background * pba,
+							     struct tszspectrum * tsz);
 
 double get_pressure_P_over_P_delta_at_x_gnfw_500c(double x_asked,
                                                       double P0GNFW,

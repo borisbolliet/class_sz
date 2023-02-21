@@ -1886,8 +1886,6 @@ int input_read_parameters(
       //For the computation of sigma2
       class_read_int("ndim_masses",ptsz->ndimSZ);
 
-      class_read_int("use_class_sz_fast_mode",ptsz->use_class_sz_fast_mode);
-
       class_read_double("delta_cSZ",ptsz->delta_cSZ);
 
       //Multplicity function Tinker 2010
@@ -2177,17 +2175,6 @@ int input_read_parameters(
         // exit(0);
       }
 
-      if ((strstr(string1,"gas_density_profile_2h") != NULL) ) {
-        ptsz->has_gas_density_profile_2h =_TRUE_;
-        ppt->has_density_transfers=_TRUE_;
-        ppt->has_pk_matter = _TRUE_;
-        ppt->has_perturbations = _TRUE_;
-        pnl->has_pk_cb = _TRUE_;
-        pnl->has_pk_m = _TRUE_;
-        ptsz->need_hmf = 1;
-        // printf("ok %d\n",ptsz->has_gas_density_profile_2h);
-        // exit(0);
-      }
 
 
       if ((strstr(string1,"pk_em_at_z_1h") != NULL) ) {
@@ -3865,6 +3852,15 @@ int input_read_parameters(
        class_read_double("alpha_z_xc_B12",ptsz->alpha_z_xc_B12);// = 0.731;
        class_read_double("alpha_z_beta_B12",ptsz->alpha_z_beta_B12);// = 0.415;
 
+       class_read_double("mcut_B12",ptsz->mcut_B12);// = 1.e14;
+       class_read_double("alphap_m_P0_B12",ptsz->alphap_m_P0_B12);// = 0.154;
+       class_read_double("alphap_m_xc_B12",ptsz->alphap_m_xc_B12);// = -0.00865;
+       class_read_double("alphap_m_beta_B12",ptsz->alphap_m_beta_B12);// = 0.0393;
+
+       class_read_double("alpha_c_P0_B12",ptsz->alpha_c_P0_B12);// = 0.;
+       class_read_double("alpha_c_xc_B12",ptsz->alpha_c_xc_B12);// = 0.;
+       class_read_double("alpha_c_beta_B12",ptsz->alpha_c_beta_B12);// = 0.;
+
      }
 class_read_int("truncate_wrt_rvir",ptsz->truncate_wrt_rvir);
 class_read_int("use_websky_m200m_to_m200c_conversion",ptsz->use_websky_m200m_to_m200c_conversion);
@@ -4100,6 +4096,15 @@ class_read_int("no_tt_noise_in_kSZ2X_cov",ptsz->no_tt_noise_in_kSZ2X_cov);
             ptsz->alpha_z_alpha = 0.19;
             ptsz->alpha_z_beta = -0.025;
             ptsz->xc_B16 = 0.5;
+
+	    ptsz->mcut = 1.e14;
+            ptsz->alphap_m_rho0 = 0.29;
+            ptsz->alphap_m_alpha = -0.03;
+            ptsz->alphap_m_beta = 0.04;
+
+            ptsz->alpha_c_rho0 = 0.;
+            ptsz->alpha_c_alpha = 0.;
+            ptsz->alpha_c_beta = 0.;
         }
         else  if ((strstr(string1,"shock") != NULL)){
           ptsz->tau_profile_mode=1;
@@ -4116,6 +4121,16 @@ class_read_int("no_tt_noise_in_kSZ2X_cov",ptsz->no_tt_noise_in_kSZ2X_cov);
             ptsz->alpha_z_alpha = 0.27;
             ptsz->alpha_z_beta = 0.037;
             ptsz->xc_B16 = 0.5;
+
+	    ptsz->mcut = 1.e14;
+            ptsz->alphap_m_rho0 = 0.09;
+            ptsz->alphap_m_alpha = -0.017;
+            ptsz->alphap_m_beta = 0.005;
+
+            ptsz->alpha_c_rho0 = 0.;
+            ptsz->alpha_c_alpha = 0.;
+            ptsz->alpha_c_beta = 0.;
+
         }
         else if ((strstr(string1,"custom") != NULL)){
           ptsz->tau_profile_mode=2;
@@ -4130,6 +4145,17 @@ class_read_int("no_tt_noise_in_kSZ2X_cov",ptsz->no_tt_noise_in_kSZ2X_cov);
           class_read_double("alpha_z_rho0",ptsz->alpha_z_rho0);
           class_read_double("alpha_z_alpha",ptsz->alpha_z_alpha);
           class_read_double("alpha_z_beta",ptsz->alpha_z_beta);
+
+	  // B.H.
+	  class_read_double("mcut",ptsz->mcut);
+          class_read_double("alphap_m_rho0",ptsz->alphap_m_rho0);
+          class_read_double("alphap_m_alpha",ptsz->alphap_m_alpha);
+          class_read_double("alphap_m_beta",ptsz->alphap_m_beta);
+
+          class_read_double("alpha_c_rho0",ptsz->alpha_c_rho0);
+          class_read_double("alpha_c_alpha",ptsz->alpha_c_alpha);
+          class_read_double("alpha_c_beta",ptsz->alpha_c_beta);
+	  
           class_read_double("gamma_B16",ptsz->gamma_B16);
           class_read_double("xc_B16",ptsz->xc_B16);
         }
@@ -5305,7 +5331,6 @@ class_read_int("no_tt_noise_in_kSZ2X_cov",ptsz->no_tt_noise_in_kSZ2X_cov);
       + ptsz->has_pk_bb_at_z_2h
       + ptsz->has_pk_b_at_z_2h
       + ptsz->has_gas_pressure_profile_2h
-      + ptsz->has_gas_density_profile_2h
       + ptsz->has_pk_em_at_z_1h
       + ptsz->has_pk_em_at_z_2h
       + ptsz->has_pk_HI_at_z_1h
@@ -6138,8 +6163,6 @@ int input_default_params(
   ptsz->check_consistency_conditions = 0;
   ptsz->damping_1h_term = 1;
 
-  ptsz->use_class_sz_fast_mode = 0;
-
   ptsz->N_kSZ2_gal_multipole_grid = 20;
 
   ptsz->concentration_parameter=6;
@@ -6292,8 +6315,16 @@ int input_default_params(
    ptsz->alpha_z_xc_B12 = 0.731;
    ptsz->alpha_z_beta_B12 = 0.415;
 
-   ptsz->use_websky_m200m_to_m200c_conversion = 0;
+   ptsz->mcut_B12 = 1.e14;
+   ptsz->alphap_m_P0_B12 = 0.154;
+   ptsz->alphap_m_xc_B12 = -0.00865;
+   ptsz->alphap_m_beta_B12 = 0.0393;
 
+   ptsz->alpha_c_P0_B12 = 0.;
+   ptsz->alpha_c_xc_B12 = 0.;
+   ptsz->alpha_c_beta_B12 = 0.;
+
+   ptsz->use_websky_m200m_to_m200c_conversion = 0;
 
    //battaglia density profile
    // default set to agn paremeters
@@ -6308,6 +6339,16 @@ int input_default_params(
    ptsz->alpha_z_rho0 = -0.66;
    ptsz->alpha_z_alpha = 0.19;
    ptsz->alpha_z_beta = -0.025;
+
+   ptsz->mcut = 1.e14;
+   ptsz->alphap_m_rho0 = 0.29;
+   ptsz->alphap_m_alpha = -0.03;
+   ptsz->alphap_m_beta = 0.04;
+
+   ptsz->alpha_c_rho0 = 0.;
+   ptsz->alpha_c_alpha = 0.;
+   ptsz->alpha_c_beta = 0.;
+   
    ptsz->gamma_B16 = -0.2;
    ptsz->xc_B16 = 0.5;
 
@@ -6569,7 +6610,6 @@ int input_default_params(
   ptsz->has_pk_bb_at_z_2h = _FALSE_;
   ptsz->has_pk_b_at_z_2h = _FALSE_;
   ptsz->has_gas_pressure_profile_2h = _FALSE_;
-  ptsz->has_gas_density_profile_2h = _FALSE_;
   ptsz->has_pk_em_at_z_1h = _FALSE_;
   ptsz->has_pk_em_at_z_2h = _FALSE_;
   ptsz->has_pk_HI_at_z_1h = _FALSE_;

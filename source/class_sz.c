@@ -14,7 +14,11 @@
 #include "fft.h"
 
 
-int class_sz_cosmo_init(  struct background * pba,
+
+
+
+int szpowerspectrum_init(
+                          struct background * pba,
                           struct thermo * pth,
                           struct perturbs * ppt,
                           struct nonlinear * pnl,
@@ -23,7 +27,8 @@ int class_sz_cosmo_init(  struct background * pba,
                           struct lensing * ple,
                           struct tszspectrum * ptsz,
                           struct precision * ppr
-                        ){
+			                    )
+{
 
 // ptsz->has_sz_counts = _TRUE_;
 
@@ -39,7 +44,6 @@ int class_sz_cosmo_init(  struct background * pba,
       + ptsz->has_pk_bb_at_z_2h
       + ptsz->has_pk_b_at_z_2h
       + ptsz->has_gas_pressure_profile_2h
-      + ptsz->has_gas_density_profile_2h
       + ptsz->has_pk_em_at_z_1h
       + ptsz->has_pk_em_at_z_2h
       + ptsz->has_pk_HI_at_z_1h
@@ -198,59 +202,11 @@ int class_sz_cosmo_init(  struct background * pba,
    // printf("need_hmf = %d\n",ptsz->need_hmf);
    select_multipole_array(ptsz);
 
-   ptsz->chi_star = pth->ra_star*pba->h;
-   double tau;
-   int first_index_back = 0;
-   double * pvecback;
-   double OmegaM;
-
-   class_alloc(pvecback,pba->bg_size*sizeof(double),ptsz->error_message);
 
 
-      class_call(background_tau_of_z(pba,
-                                     0.0, //TBC: z1SZ?
-                                     &tau
-                                     ),
-                      ptsz->error_message,
-                      ptsz->error_message
-                      );
-
-     class_call(background_at_tau(pba,
-                                  tau,
-                                  pba->long_info,
-                                  pba->inter_normal,
-                                  &first_index_back,
-                                  pvecback),
-                      ptsz->error_message,
-                      ptsz->error_message
-                      );
-
-      ptsz->Rho_crit_0 =
-      (3./(8.*_PI_*_G_*_M_sun_))
-      *pow(_Mpc_over_m_,1)
-      *pow(_c_,2)
-      *pvecback[pba->index_bg_rho_crit]
-      /pow(pba->h,2);
-
-
-      ptsz->Omega_m_0 = pvecback[pba->index_bg_Omega_m];
-      ptsz->Omega_r_0 = pvecback[pba->index_bg_Omega_r];
-      free(pvecback);
-
-      ptsz->Omega_ncdm_0 = ptsz->Omega_m_0
-      -pba->Omega0_b
-      -pba->Omega0_cdm;
-
-      ptsz->Omega0_b = pba->Omega0_b;
-
-      if (ptsz->f_b_gas == -1.){
-        ptsz->f_b_gas = pba->Omega0_b/ptsz->Omega_m_0;
-      }
-
-if (ptsz->use_class_sz_fast_mode == 0)
    show_preamble_messages(pba,pth,pnl,ppm,ptsz);
-
-if (ptsz->need_sigma == 1 || ptsz->has_vrms2){
+   if (ptsz->need_sigma == 1
+    || ptsz->has_vrms2){
 
 
       double z_min = r8_min(ptsz->z1SZ,ptsz->z1SZ_dndlnM);
@@ -274,260 +230,7 @@ if (ptsz->need_sigma == 1 || ptsz->has_vrms2){
 
    tabulate_sigma_and_dsigma_from_pk(pba,pnl,ppm,ptsz);
 
-// if (ptsz->use_class_sz_fast_mode){
-// for the class_szfast mode
-  class_alloc(ptsz->array_pkl_at_z_and_k,
-              sizeof(double *)*ptsz->n_arraySZ*ptsz->ndimSZ,
-              ptsz->error_message);
 
-  class_alloc(ptsz->array_pknl_at_z_and_k,
-              sizeof(double *)*ptsz->n_arraySZ*ptsz->ndimSZ,
-              ptsz->error_message);
-
-  class_alloc(ptsz->array_lnk,
-              sizeof(double *)*ptsz->ndimSZ,
-              ptsz->error_message);
-
-// }
-
-   return _SUCCESS_;
-   }
-}
-
-
-int szpowerspectrum_init(
-                          struct background * pba,
-                          struct thermo * pth,
-                          struct perturbs * ppt,
-                          struct nonlinear * pnl,
-                          struct primordial * ppm,
-                          struct spectra * psp,
-                          struct lensing * ple,
-                          struct tszspectrum * ptsz,
-                          struct precision * ppr
-			                    )
-{
-
-// ptsz->has_sz_counts = _TRUE_;
-
-  int all_comps = ptsz->has_sz_ps
-      + ptsz->has_hmf
-      + ptsz->has_n5k
-      // + ptsz->has_pk_at_z_1h
-      + ptsz->has_pk_at_z_1h
-      + ptsz->has_pk_at_z_2h
-      + ptsz->has_pk_gg_at_z_1h
-      + ptsz->has_pk_gg_at_z_2h
-      + ptsz->has_pk_bb_at_z_1h
-      + ptsz->has_pk_bb_at_z_2h
-      + ptsz->has_pk_b_at_z_2h
-      + ptsz->has_gas_pressure_profile_2h
-      + ptsz->has_gas_density_profile_2h
-      + ptsz->has_pk_em_at_z_1h
-      + ptsz->has_pk_em_at_z_2h
-      + ptsz->has_pk_HI_at_z_1h
-      + ptsz->has_pk_HI_at_z_2h
-      + ptsz->has_bk_at_z_1h
-      + ptsz->has_bk_at_z_2h
-      + ptsz->has_bk_at_z_3h
-      + ptsz->has_bk_ttg_at_z_1h
-      + ptsz->has_bk_ttg_at_z_2h
-      + ptsz->has_bk_ttg_at_z_3h
-      + ptsz->has_bk_at_z_hf
-      + ptsz->has_mean_y
-      + ptsz->has_cib_monopole
-      + ptsz->has_cib_shotnoise
-      + ptsz->has_dcib0dz
-      + ptsz->has_dydz
-      + ptsz->has_sz_2halo
-      + ptsz->has_sz_trispec
-      + ptsz->has_sz_m_y_y_1h
-      + ptsz->has_sz_m_y_y_2h
-      + ptsz->has_sz_te_y_y
-      + ptsz->has_sz_cov_N_N
-      + ptsz->has_tSZ_tSZ_tSZ_1halo
-      + ptsz->has_tSZ_tSZ_tSZ_2h
-      + ptsz->has_tSZ_tSZ_tSZ_3h
-      + ptsz->has_kSZ_kSZ_1h
-      + ptsz->has_kSZ_kSZ_2h
-      + ptsz->has_kSZ_kSZ_tSZ_1h
-      + ptsz->has_kSZ_kSZ_tSZ_2h
-      + ptsz->has_kSZ_kSZ_tSZ_3h
-      + ptsz->has_kSZ_kSZ_gal_1h
-      + ptsz->has_kSZ_kSZ_gal_1h_fft
-      + ptsz->has_kSZ_kSZ_gal_2h_fft
-      + ptsz->has_kSZ_kSZ_gal_3h_fft
-      + ptsz->has_kSZ_kSZ_gal_2h
-      + ptsz->has_kSZ_kSZ_gal_3h
-      + ptsz->has_kSZ_kSZ_gal_hf
-      + ptsz->has_kSZ_kSZ_lensmag_1halo
-      + ptsz->has_kSZ_kSZ_gallens_1h_fft
-      + ptsz->has_kSZ_kSZ_gallens_2h_fft
-      + ptsz->has_kSZ_kSZ_gallens_3h_fft
-      + ptsz->has_kSZ_kSZ_gallens_hf
-      + ptsz->has_kSZ_kSZ_lens_1h_fft
-      + ptsz->has_kSZ_kSZ_lens_2h_fft
-      + ptsz->has_kSZ_kSZ_lens_3h_fft
-      + ptsz->has_kSZ_kSZ_lens_hf
-      + ptsz->has_gallens_gallens_1h
-      + ptsz->has_gallens_gallens_2h
-      + ptsz->has_gallens_lens_1h
-      + ptsz->has_gallens_lens_2h
-      + ptsz->has_tSZ_gal_1h
-      + ptsz->has_tSZ_gal_2h
-      + ptsz->has_tSZ_lensmag_1h
-      + ptsz->has_tSZ_lensmag_2h
-      + ptsz->has_tSZ_cib_1h
-      + ptsz->has_tSZ_cib_2h
-      + ptsz->has_lens_cib_1h
-      + ptsz->has_lens_cib_2h
-      + ptsz->has_gal_cib_1h
-      + ptsz->has_gal_cib_2h
-      + ptsz->has_cib_cib_1h
-      + ptsz->has_cib_cib_2h
-      + ptsz->has_ngal_ngal_1h
-      + ptsz->has_ngal_ngal_2h
-      + ptsz->has_ngal_ngal_hf
-      + ptsz->has_ngal_lens_1h
-      + ptsz->has_ngal_lens_2h
-      + ptsz->has_ngal_lens_hf
-      + ptsz->has_gal_gal_1h
-      + ptsz->has_gal_gal_2h
-      + ptsz->has_gal_gal_hf
-      + ptsz->has_gal_lens_1h
-      + ptsz->has_gal_lens_2h
-      + ptsz->has_gal_lens_hf
-      + ptsz->has_gal_lensmag_1h
-      + ptsz->has_gal_lensmag_2h
-      + ptsz->has_gal_gallens_1h
-      + ptsz->has_gal_gallens_2h
-      + ptsz->has_gal_lensmag_hf
-      + ptsz->has_lensmag_lensmag_1h
-      + ptsz->has_lensmag_lensmag_2h
-      + ptsz->has_lensmag_lensmag_hf
-      + ptsz->has_lens_lensmag_hf
-      + ptsz->has_lens_lensmag_1h
-      + ptsz->has_lens_lensmag_2h
-      + ptsz->has_lens_lens_1h
-      + ptsz->has_lens_lens_2h
-      + ptsz->has_lens_lens_hf
-      + ptsz->has_tSZ_lens_1h
-      + ptsz->has_tSZ_lens_2h
-      + ptsz->has_isw_lens
-      + ptsz->has_isw_tsz
-      + ptsz->has_isw_auto
-      + ptsz->has_dndlnM
-      + ptsz->has_vrms2
-      + ptsz->has_sz_counts
-      + ptsz->has_sz_rates
-      + ptsz->need_m200c_to_m500c
-      + ptsz->need_m500c_to_m200c
-      + ptsz->need_m200m_to_m500c
-      + ptsz->need_m200m_to_m200c
-      + ptsz->need_m200c_to_m200m
-      + ptsz->tabulate_rhob_xout_at_m_and_z
-      + ptsz->need_ng_bias;
-  int electron_pressure_comps = ptsz->has_sz_ps
-      + ptsz->has_mean_y
-      + ptsz->has_gas_pressure_profile_2h
-      + ptsz->has_dydz
-      + ptsz->has_sz_2halo
-      + ptsz->has_sz_trispec
-      + ptsz->has_sz_m_y_y_1h
-      + ptsz->has_sz_m_y_y_2h
-      + ptsz->has_sz_te_y_y
-      + ptsz->has_tSZ_tSZ_tSZ_1halo
-      + ptsz->has_tSZ_tSZ_tSZ_2h
-      + ptsz->has_tSZ_tSZ_tSZ_3h
-      + ptsz->has_kSZ_kSZ_tSZ_1h
-      + ptsz->has_kSZ_kSZ_tSZ_2h
-      + ptsz->has_kSZ_kSZ_tSZ_3h
-      + ptsz->has_tSZ_gal_1h
-      + ptsz->has_tSZ_gal_2h
-      + ptsz->has_tSZ_lensmag_1h
-      + ptsz->has_tSZ_lensmag_2h
-      + ptsz->has_tSZ_cib_1h
-      + ptsz->has_tSZ_cib_2h
-      + ptsz->has_tSZ_lens_1h
-      + ptsz->has_tSZ_lens_2h
-      + ptsz->has_isw_tsz;
-
-
-   // Skip the module if no SZ/halo-model computations are requested:
-    if (all_comps == _FALSE_)
-   {
-      if (ptsz->sz_verbose > 0)
-         printf("->No class_sz quantities requested - modules skipped.\n");
-         return _SUCCESS_;
-   }
-
-   else
-   {
-     if (ptsz->sz_verbose > 0)
-        printf("->Class_sz computations. Initialization.\n");
-
-
-// // printf("entering szp module");
-//     ptsz->ln_k_size_for_tSZ = (int)(log(ptsz->k_max_for_pk_in_tSZ
-//                                      /ptsz->k_min_for_pk_in_tSZ)
-//                                  /log(10.)*ptsz->k_per_decade_for_tSZ) + 2;
-//
-//   class_alloc(ptsz->ln_k_for_tSZ,ptsz->ln_k_size_for_tSZ*sizeof(double),ptsz->error_message);
-//   int i;
-//   for (i=0; i<ptsz->ln_k_size_for_tSZ; i++)
-//       ptsz->ln_k_for_tSZ[i]=log(ptsz->k_min_for_pk_in_tSZ)+i*log(10.)/ptsz->k_per_decade_for_tSZ;
-//
-//
-//    // printf("need_hmf = %d\n",ptsz->need_hmf);
-//    select_multipole_array(ptsz);
-//
-//
-//
-//    show_preamble_messages(pba,pth,pnl,ppm,ptsz);
-//    if (ptsz->need_sigma == 1
-//     || ptsz->has_vrms2){
-//
-//
-//       double z_min = r8_min(ptsz->z1SZ,ptsz->z1SZ_dndlnM);
-//       // z_min = r8_min(z_min,ptsz->z_for_pk_hm);
-//       double z_max = 1.0001*r8_max(ptsz->z2SZ,ptsz->z2SZ_dndlnM);
-//       int index_z;
-//
-//       class_alloc(ptsz->array_redshift,sizeof(double *)*ptsz->n_arraySZ,ptsz->error_message);
-//
-//       for (index_z=0; index_z<ptsz->n_arraySZ; index_z++)
-//       {
-//         ptsz->array_redshift[index_z] =
-//                                         log(1.+z_min)
-//                                         +index_z*(log(1.+z_max)-log(1.+z_min))
-//                                         /(ptsz->n_arraySZ-1.); // log(1+z)
-//
-//                                       }
-//                                     }
-//
-//
-//
-//    tabulate_sigma_and_dsigma_from_pk(pba,pnl,ppm,ptsz);
-
-
-
-
-
-// // if (ptsz->use_class_sz_fast_mode){
-// // for the class_szfast mode
-//   class_alloc(ptsz->array_pkl_at_z_and_k,
-//               sizeof(double *)*ptsz->n_arraySZ*ptsz->ndimSZ,
-//               ptsz->error_message);
-//
-//   class_alloc(ptsz->array_pknl_at_z_and_k,
-//               sizeof(double *)*ptsz->n_arraySZ*ptsz->ndimSZ,
-//               ptsz->error_message);
-//
-//   class_alloc(ptsz->array_lnk,
-//               sizeof(double *)*ptsz->ndimSZ,
-//               ptsz->error_message);
-//
-// // }
 
 // begin tk stuff
 // start collecting transfer functions
@@ -954,89 +657,32 @@ if (ptsz->has_mean_galaxy_bias)
 }
 
 
-if (ptsz->use_fft_for_profiles_transform){
-
-  // printf("-> start tabulation of gas pressure profile  444.\n");
-  tabulate_gas_density_profile_fft(pba,ptsz);
-
-  // printf("-> start tabulation of gas pressure profile  444 done.\n");
-//
-//   int n_k = ptsz->n_k_density_profile;
-//   int n_m = ptsz->n_m_density_profile;
-//   int n_z = ptsz->n_z_density_profile;
-// //
-// int index_ztest, index_mtest, index_ktest;
-// int ik = 0;
-// for (index_ztest = n_z - 5;index_ztest<n_z;index_ztest++){
-//   for (index_mtest = n_m - 5;index_mtest<n_m;index_mtest++){
-//     for (index_ktest = n_k - 5;index_ktest<n_k;index_ktest++){
-//       double m_asked = exp(ptsz->array_profile_ln_m[index_mtest]);
-//       double z_asked = exp(ptsz->array_profile_ln_1pz[index_ztest])-1.;;
-//       double k_asked = exp(ptsz->array_profile_ln_k[index_ktest]);
-//       double result = get_gas_density_profile_at_k_M_z(k_asked,m_asked,z_asked,ptsz);
-//       printf("res fft routine i = %d k = %.3e m = %.3e z = %.3e = %.10e\n",ik,k_asked, m_asked, z_asked, result/m_asked/ptsz->f_b_gas);
-//       ik ++;
-//     }
-//   }
-// }
- // double m_asked = 5e14;
- // double z_asked = 0.1;
- // double k_asked = 0.6;
- // double result = get_gas_density_profile_at_k_M_z(k_asked,m_asked,z_asked,ptsz);
- //  printf("res = %.10e\n",result/m_asked/ptsz->f_b_gas);
- // exit(0);
-     // printf("l_asked %.8e")
- // l = 5.00000000e+04 m = 1.00000000e+18 z = 5.66598637e+00 lnrho = -9.90530714e+00
- // l = 4.31674192e+04 m = 4.34701316e+17 z = 1.25153177e+00 lnrho = -9.22605976e+00
-  //    double result = get_gas_density_profile_at_k_M_z(5.00000000e+04,1.00000000e+18,5.66598637e+00,ptsz);
-  //    printf("%.8e\n",log(result));
-  //
-  //
-  // printf("##################\n");
-  // exit(0);
-
-
-}
-else{
-
-
 // printf("-> start tabulation of gas pressure profile  444.\n");
  // tabulate density, only when requested (e.g., kSZ)
-
  tabulate_gas_density_profile(pba,ptsz);
-
-// ik = 0;
-// for (index_ztest = n_z - 5;index_ztest<n_z;index_ztest++){
-//   for (index_mtest = n_m - 5;index_mtest<n_m;index_mtest++){
-//     for (index_ktest = n_k - 5;index_ktest<n_k;index_ktest++){
-//       double m_asked = exp(ptsz->array_profile_ln_m[index_mtest]);
-//       double z_asked = exp(ptsz->array_profile_ln_1pz[index_ztest])-1.;;
-//       double k_asked = exp(ptsz->array_profile_ln_k[index_ktest]);
-//       double result = get_gas_density_profile_at_k_M_z(k_asked,m_asked,z_asked,ptsz);
-//       printf("res original routine i = %d k = %.3e m = %.3e z = %.3e = %.10e\n",ik, k_asked, m_asked, z_asked, result/m_asked/ptsz->f_b_gas);
-//       ik ++;
-//     }
-//   }
-// }
 
 //  if (ptsz->check_consistency_conditions == 1){
  // printf("checking normalization of profile\n");
 //  // the normalization of the profile should be m_delta in the limit k->0.
-//  result = get_gas_density_profile_at_k_M_z(k_asked,m_asked,z_asked,ptsz);
-// //
+//  result = get_gas_density_profile_at_k_M_z(k,m_asked,z_asked,ptsz);
 //
-// printf("res = %.10e\n",result/m_asked/ptsz->f_b_gas);
- // exit(0);
+//  exit(0);
 // }
 // double m_asked = 5e14;
-// double z_asked = 0.1;
-// double k_asked = 0.6;
+// double z_asked = 1.;
+// double k_asked = 1e-3;
 // double result = get_gas_density_profile_at_k_M_z(k_asked,m_asked,z_asked,ptsz);
-// printf("res = %.10e\n",result/m_asked/ptsz->f_b_gas);
-//  exit(0);
-}
-
-
+// printf("res = %.5e\n",result/m_asked/ptsz->f_b_gas);
+// exit(0);
+    // printf("l_asked %.8e")
+// l = 5.00000000e+04 m = 1.00000000e+18 z = 5.66598637e+00 lnrho = -9.90530714e+00
+// l = 4.31674192e+04 m = 4.34701316e+17 z = 1.25153177e+00 lnrho = -9.22605976e+00
+ //    double result = get_gas_density_profile_at_k_M_z(5.00000000e+04,1.00000000e+18,5.66598637e+00,ptsz);
+ //    printf("%.8e\n",log(result));
+ //
+ //
+ // printf("exiting\n");
+ // exit(0);
 
  // tabulate pressure profile for gnFW
   // printf("tab \n");
@@ -1046,16 +692,8 @@ if (electron_pressure_comps != _FALSE_){
   // printf("-> start tabulation of gas pressure profile.\n");
  if (ptsz->pressure_profile == 3)
  tabulate_gas_pressure_profile_gNFW(pba,ptsz);
- else if (ptsz->pressure_profile == 4){
-if (ptsz->use_fft_for_profiles_transform){
- tabulate_gas_pressure_profile_B12_fft(pba,ptsz);
- // exit(0);
-}
-else{
+ else if (ptsz->pressure_profile == 4)
  tabulate_gas_pressure_profile_B12(pba,ptsz);
-}
-}
-
 }
 
 
@@ -1164,8 +802,7 @@ tabulate_gas_pressure_profile_2h_fft_at_z_and_r(pba,pnl,ppm,ptsz);
 }
 // exit(0);
 
-if (ptsz->has_pk_b_at_z_2h
-   +ptsz->has_gas_density_profile_2h){
+if (ptsz->has_pk_b_at_z_2h){
 tabulate_gas_density_profile_2h(pba,pnl,ppm,ppt,ptsz);
 // double k_test = 0.36e-1;
 // double z_test = 1.51;
@@ -1187,10 +824,9 @@ tabulate_gas_density_profile_2h_fft_at_z_and_r(pba,pnl,ppm,ptsz);
 // double z_test = 1.20000e+00;
 // double m_test = 3.5e13;
 // double rho_test = get_rho_2h_at_r_and_m_and_z(r_test,m_test,z_test,ptsz,pba);
-// //
-// printf("r_test = %.5e, z_test = %.5e, rho_test = %.12e\n",
+//
+// printf("r_test = %.5e, z_test = %.5e, rho_test = %.8e\n",
 //         r_test,z_test,rho_test);
-// exit(0);
 
 // double k_min = ptsz->k_min_samp_fftw;
 // double k_max = ptsz->k_max_samp_fftw; // this is a precision parameter
@@ -2075,7 +1711,6 @@ int szpowerspectrum_free(struct tszspectrum *ptsz)
       + ptsz->has_pk_bb_at_z_1h
       + ptsz->has_pk_bb_at_z_2h
       + ptsz->has_pk_b_at_z_2h
-      + ptsz->has_gas_density_profile_2h
       + ptsz->has_gas_pressure_profile_2h
       + ptsz->has_pk_em_at_z_1h
       + ptsz->has_pk_em_at_z_2h
@@ -2541,7 +2176,6 @@ if(ptsz->has_kSZ_kSZ_gal_1h
 || ptsz->has_pk_bb_at_z_1h
 || ptsz->has_pk_bb_at_z_2h
 || ptsz->has_pk_b_at_z_2h
-|| ptsz->has_gas_density_profile_2h
 || ptsz->has_pk_em_at_z_1h
 || ptsz->has_pk_em_at_z_2h
 || ptsz->has_bk_ttg_at_z_1h
@@ -2807,12 +2441,6 @@ if (ptsz->sz_verbose>10) printf("-> freeing sigma(M,r).\n");
    free(ptsz->array_dsigma2dR_at_z_and_R);
  }
 
-// if (ptsz->use_class_sz_fast_mode){
-  free(ptsz->array_pkl_at_z_and_k);
-  free(ptsz->array_pknl_at_z_and_k);
-  free(ptsz->array_lnk);
-// }
-
 
 if (ptsz->sz_verbose>10) printf("-> freeing flag 1.\n");
 
@@ -2830,9 +2458,7 @@ if (ptsz->has_kSZ_kSZ_gal_1h_fft
    || ptsz->has_kSZ_kSZ_lens_covmat
    || ptsz->convert_cls_to_gamma
    || ptsz->has_pk_b_at_z_2h
-   || ptsz->has_gas_density_profile_2h
    || ptsz->has_gas_pressure_profile_2h
-   || ptsz->use_fft_for_profiles_transform
    || ptsz->has_n5k){
   fftw_destroy_plan(ptsz->forward_plan);
   fftw_destroy_plan(ptsz->reverse_plan);
@@ -8907,6 +8533,66 @@ double get_pressure_P_over_P_delta_at_x_M_z_b12_200c(double x_asked,
 }
 
 
+// B.H. modified normaized pressure profile battaglia et al 2012
+double get_pressure_P_over_P_delta_at_x_M_c_z_break_b12_200c(double x_asked,
+							     double m_asked,
+							     double c_asked,
+							     double z_asked,
+							     double A_P0,
+							     double A_xc,
+							     double A_beta,
+							     double alpha_m_P0,
+							     double alpha_m_xc,
+							     double alpha_m_beta,
+							     double alpha_z_P0,
+							     double alpha_z_xc,
+							     double alpha_z_beta,
+							     double mcut,
+							     double alphap_m_P0,
+							     double alphap_m_xc,
+							     double alphap_m_beta,
+							     double alpha_c_P0,
+							     double alpha_c_xc,
+							     double alpha_c_beta,
+							     double alpha,
+							     double gamma,
+							     struct background * pba,
+							     struct tszspectrum * ptsz){
+
+  /// NORMALIZED PRESSURE PROFILE PART
+
+  double xc;
+  double beta;
+  double P0;
+
+  double m200_over_msol = m_asked/pba->h; // convert to Msun
+  double x = x_asked;
+  double z = z_asked;
+
+  if (m200_over_msol > mcut) {
+    P0 = A_P0*pow(m200_over_msol/mcut,alpha_m_P0)*pow(1.+z,alpha_z_P0)*pow(1.+c_asked,alpha_c_P0);
+    xc = A_xc*pow(m200_over_msol/mcut,alpha_m_xc)*pow(1.+z,alpha_z_xc)*pow(1.+c_asked,alpha_c_xc);
+    beta = A_beta*pow(m200_over_msol/mcut,alpha_m_beta)*pow(1.+z,alpha_z_beta)*pow(1.+c_asked,alpha_c_beta);
+  }
+  else {
+    P0 = A_P0*pow(m200_over_msol/mcut,alphap_m_P0)*pow(1.+z,alpha_z_P0)*pow(1.+c_asked,alpha_c_P0);
+    xc = A_xc*pow(m200_over_msol/mcut,alphap_m_xc)*pow(1.+z,alpha_z_xc)*pow(1.+c_asked,alpha_c_xc);
+    beta = A_beta*pow(m200_over_msol/mcut,alphap_m_beta)*pow(1.+z,alpha_z_beta)*pow(1.+c_asked,alpha_c_beta);
+  }
+  // double gamma = -0.3;
+  // double alpha = 1.0;
+
+  double plc_x = P0*pow(x/xc,gamma)*pow(1.+ pow(x/xc,alpha),-beta);
+
+
+  //putting everything together
+  double result =  plc_x;
+
+  return result;
+
+}
+
+
 // this is r_200c*P_200c
 double get_1e6xdy_from_battaglia_pressure_at_x_z_and_m200c(double x,
                                                            double z,
@@ -9728,7 +9414,7 @@ double get_sigma_at_z_and_m(double z,
 
    double z_asked = log(1.+z);
    // double R_asked = log(exp(log(rh))/pba->h);
-   double R_asked = log(rh/pba->h); // this is in Mpc
+   double R_asked = log(rh/pba->h);
 
 
  if (z_asked<ptsz->array_redshift[0]){
@@ -9989,12 +9675,6 @@ double get_pk_nonlin_at_k_and_z(double k, double z,
                           struct primordial * ppm,
                           struct nonlinear * pnl,
                           struct tszspectrum * ptsz){
-
-if (ptsz->use_class_sz_fast_mode){
-double pk = get_pk_lin_at_k_and_z_fast(k,z,pba,ppm,pnl,ptsz);
-return pk;
-}
-else{
 if ((k*pba->h < exp(pnl->ln_k[0])) || (k*pba->h > exp(pnl->ln_k[pnl->k_size-1]))){
   return 0.;
 }
@@ -10015,55 +9695,7 @@ double * pk_ic = NULL;
                                           pnl->error_message,
                                           pnl->error_message);
 return pk*pow(pba->h,3.);
-}
                           }
-
-
-double get_pk_lin_at_k_and_z_fast(double k, double z,
-                          struct background * pba,
-                          struct primordial * ppm,
-                          struct nonlinear * pnl,
-                          struct tszspectrum * ptsz){
-  if ((k*pba->h < exp(ptsz->array_lnk[0])) || (k*pba->h > exp(ptsz->array_lnk[ptsz->ndimSZ-1]))){
-    return 0.;
-  }
-
-   double zp = log(1.+z);
-   double kp = log(k*pba->h);
-   double pk = pwl_interp_2d(ptsz->n_arraySZ,
-                      ptsz->ndimSZ,
-                      ptsz->array_redshift,
-                      ptsz->array_lnk,
-                      ptsz->array_pkl_at_z_and_k,
-                      1,
-                      &zp,
-                      &kp);
-
-return pk*pow(pba->h,3.);
-}
-
-double get_pk_nonlin_at_k_and_z_fast(double k, double z,
-                          struct background * pba,
-                          struct primordial * ppm,
-                          struct nonlinear * pnl,
-                          struct tszspectrum * ptsz){
-  if ((k*pba->h < exp(ptsz->array_lnk[0])) || (k*pba->h > exp(ptsz->array_lnk[ptsz->ndimSZ-1]))){
-    return 0.;
-  }
-
-   double zp = log(1.+z);
-   double kp = log(k*pba->h);
-   double pk = pwl_interp_2d(ptsz->n_arraySZ,
-                      ptsz->ndimSZ,
-                      ptsz->array_redshift,
-                      ptsz->array_lnk,
-                      ptsz->array_pknl_at_z_and_k,
-                      1,
-                      &zp,
-                      &kp);
-
-return pk*pow(pba->h,3.);
-}
 
 
 double get_pk_lin_at_k_and_z(double k, double z,
@@ -10072,18 +9704,10 @@ double get_pk_lin_at_k_and_z(double k, double z,
                           struct nonlinear * pnl,
                           struct tszspectrum * ptsz){
 
-
-
-if (ptsz->use_class_sz_fast_mode){
-double pk = get_pk_lin_at_k_and_z_fast(k,z,pba,ppm,pnl,ptsz);
-return pk;
-}
-else{
-double pk;
 if ((k*pba->h < exp(pnl->ln_k[0])) || (k*pba->h > exp(pnl->ln_k[pnl->k_size-1]))){
   return 0.;
 }
-
+double pk;
 double * pk_ic = NULL;
 // printf("before\n");
         class_call(nonlinear_pk_at_k_and_z(
@@ -10105,7 +9729,6 @@ double * pk_ic = NULL;
 // evaluate_pk_at_ell_plus_one_half_over_chi(V->pvecback,V->pvectsz,V->pba,V->ppm,V->pnl,V->ptsz);
 
 return pk*pow(pba->h,3.);
-}
                           }
 
 
@@ -10936,9 +10559,9 @@ int evaluate_HMF_at_logM_and_z(
    //    R_asked =  ptsz->array_radius[ptsz->ndimSZ-1];
    //
 
-  pvectsz[ptsz->index_logSigma2] = 2.*log(get_sigma_at_z_and_m(exp(z_asked)-1.,m_for_hmf,ptsz,pba));
+pvectsz[ptsz->index_logSigma2] = 2.*log(get_sigma_at_z_and_m(exp(z_asked)-1.,m_for_hmf,ptsz,pba));
 
-  pvectsz[ptsz->index_lognu] = log(get_nu_at_z_and_m(exp(z_asked)-1.,m_for_hmf,ptsz,pba));
+pvectsz[ptsz->index_lognu] = log(get_nu_at_z_and_m(exp(z_asked)-1.,m_for_hmf,ptsz,pba));
 
   pvectsz[ptsz->index_dlogSigma2dlogRh] = 2.*get_dlnsigma_dlnR_at_z_and_m(z,m_for_hmf,ptsz,pba);
   // pwl_interp_2d(
@@ -13248,26 +12871,26 @@ int show_preamble_messages(struct background * pba,
                       ptsz->error_message
                       );
 
-      // ptsz->Rho_crit_0 =
-      // (3./(8.*_PI_*_G_*_M_sun_))
-      // *pow(_Mpc_over_m_,1)
-      // *pow(_c_,2)
-      // *pvecback[pba->index_bg_rho_crit]
-      // /pow(pba->h,2);
-      //
-      //
-      // ptsz->Omega_m_0 = pvecback[pba->index_bg_Omega_m];
-      // ptsz->Omega_r_0 = pvecback[pba->index_bg_Omega_r];
-      //
-      // ptsz->Omega_ncdm_0 = ptsz->Omega_m_0
-      // -pba->Omega0_b
-      // -pba->Omega0_cdm;
-      //
-      // ptsz->Omega0_b = pba->Omega0_b;
-      //
-      // if (ptsz->f_b_gas == -1.){
-      //   ptsz->f_b_gas = pba->Omega0_b/ptsz->Omega_m_0;
-      // }
+      ptsz->Rho_crit_0 =
+      (3./(8.*_PI_*_G_*_M_sun_))
+      *pow(_Mpc_over_m_,1)
+      *pow(_c_,2)
+      *pvecback[pba->index_bg_rho_crit]
+      /pow(pba->h,2);
+
+
+      ptsz->Omega_m_0 = pvecback[pba->index_bg_Omega_m];
+      ptsz->Omega_r_0 = pvecback[pba->index_bg_Omega_r];
+
+      ptsz->Omega_ncdm_0 = ptsz->Omega_m_0
+      -pba->Omega0_b
+      -pba->Omega0_cdm;
+
+      ptsz->Omega0_b = pba->Omega0_b;
+
+      if (ptsz->f_b_gas == -1.){
+        ptsz->f_b_gas = pba->Omega0_b/ptsz->Omega_m_0;
+      }
 
       if (pba->Omega0_lambda != 0.) OmegaM = 1-pba->Omega0_lambda;
       else OmegaM = 1-pba->Omega0_fld;
@@ -13277,7 +12900,7 @@ int show_preamble_messages(struct background * pba,
       ptsz->Sigma8OmegaM_SZ = pnl->sigma8[pnl->index_pk_m]*pow(OmegaM/0.28,3./8.);
       //quantities at surface of last scattering
       // conformal distance to redshift of last scattering in Mpc/h
-
+      ptsz->chi_star = pth->ra_star*pba->h;
 
       if (ptsz->sz_verbose > 0)
       {
@@ -14813,7 +14436,6 @@ int initialise_and_allocate_memory(struct tszspectrum * ptsz){
       +ptsz->has_kSZ_kSZ_gal_3h
       +ptsz->has_kSZ_kSZ_tSZ_1h
       +ptsz->has_kSZ_kSZ_tSZ_2h
-      +ptsz->has_gas_density_profile_2h
       +ptsz->has_kSZ_kSZ_1h
       +ptsz->has_kSZ_kSZ_2h
       +ptsz->has_kSZ_kSZ_tSZ_3h
@@ -14852,9 +14474,7 @@ int initialise_and_allocate_memory(struct tszspectrum * ptsz){
   ||  ptsz->has_kSZ_kSZ_lens_covmat
   ||  ptsz->convert_cls_to_gamma
   ||  ptsz->has_pk_b_at_z_2h
-  ||  ptsz->has_gas_density_profile_2h
   ||  ptsz->has_gas_pressure_profile_2h
-  ||  ptsz->use_fft_for_profiles_transform
   ||  ptsz->has_n5k){
     if(ptsz->sz_verbose>1) printf("constructing fftw plan\n");
     // ptsz->N_samp_fftw = 100;

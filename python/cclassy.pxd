@@ -386,18 +386,10 @@ cdef extern from "class.h":
         double * cov_Y_N_mass_bin_edges
         double * cov_N_N
         double ** cov_N_N_hsv
-        double * array_sigma_at_z_and_R
-        double * array_dsigma2dR_at_z_and_R
-        double * array_radius
-        double * array_redshift
-        double * array_lnk
-        double * array_pknl_at_z_and_k
-        double * array_pkl_at_z_and_k
         short has_tszspectrum
         short sz_verbose
         double bin_dlog10_snr_last_bin
         double fNL
-        int use_class_sz_fast_mode
         double P0_B12
         double beta_B12
         double alpha_B12
@@ -409,6 +401,13 @@ cdef extern from "class.h":
         double alpha_z_P0_B12
         double alpha_z_xc_B12
         double alpha_z_beta_B12
+        double mcut_B12
+        double alphap_m_P0_B12
+        double alphap_m_xc_B12
+        double alphap_m_beta_B12
+        double alpha_c_P0_B12
+        double alpha_c_xc_B12
+        double alpha_c_beta_B12
         double A_rho0
         double A_alpha
         double A_beta
@@ -418,6 +417,13 @@ cdef extern from "class.h":
         double alpha_z_rho0
         double alpha_z_alpha
         double alpha_z_beta
+        double mcut
+        double alphap_m_rho0
+        double alphap_m_alpha
+        double alphap_m_beta
+        double alpha_c_rho0
+        double alpha_c_alpha
+        double alpha_c_beta
         double xc_B16
         double gamma_B16
 
@@ -524,7 +530,6 @@ cdef extern from "class.h":
     int spectra_init(void*,void*,void*,void*,void*,void*,void*)
     int lensing_init(void*,void*,void*,void*,void*)
     int szpowerspectrum_init(void*,void*,void*,void*,void*,void*,void*,void*,void*)
-    int class_sz_cosmo_init(void*,void*,void*,void*,void*,void*,void*,void*,void*)
     int szcount_init(void*,void*,void*,void*,void*)
 
     int background_tau_of_z(void* pba, double z,double* tau)
@@ -668,31 +673,8 @@ cdef extern from "class.h":
                                                double k_asked,
                                                double bh,
                                                void * ptsz)
-    double get_pk_nonlin_at_k_and_z(double k,
-                                    double z,
-                                    void * pba,
-                                    void * ppm,
-                                    void * pnl,
-                                    void * ptsz)
-    double get_pk_lin_at_k_and_z(double k,
-                                    double z,
-                                    void * pba,
-                                    void * ppm,
-                                    void * pnl,
-                                    void * ptsz)
 
-    double get_pk_nonlin_at_k_and_z_fast(double k,
-                                    double z,
-                                    void * pba,
-                                    void * ppm,
-                                    void * pnl,
-                                    void * ptsz)
-    double get_pk_lin_at_k_and_z_fast(double k,
-                                    double z,
-                                    void * pba,
-                                    void * ppm,
-                                    void * pnl,
-                                    void * ptsz)
+
     double get_P_delta_at_m_and_z_b12(double m_asked,
                                        double z_asked,
                                        void * ptsz,
@@ -756,6 +738,32 @@ cdef extern from "class.h":
                                              double xc,
                                              void * pba,
                                              void * ptsz)
+
+
+    double get_gas_profile_at_x_M_c_z_break_b16_200c(double x_asked,
+                                                     double m_asked,
+						     double c_asked,
+                                                     double z_asked,
+                                                     double A_rho0,
+                                                     double A_alpha,
+                                                     double A_beta,
+                                                     double alpha_m_rho0,
+                                                     double alpha_m_alpha,
+                                                     double alpha_m_beta,
+                                                     double alpha_z_rho0,
+                                                     double alpha_z_alpha,
+                                                     double alpha_z_beta,
+						     double mcut,
+						     double alphap_m_rho0,
+                                                     double alphap_m_alpha,
+                                                     double alphap_m_beta,
+                                                     double alpha_c_rho0,
+                                                     double alpha_c_alpha,
+                                                     double alpha_c_beta,
+                                                     double gamma,
+                                                     double xc,
+                                                     void * pba,
+                                                     void * ptsz)
 
     double get_f_b()
     double get_mu_e()
@@ -865,6 +873,31 @@ cdef extern from "class.h":
                                                          void * pba,
                                                          void * tsz)
 
+    double get_pressure_P_over_P_delta_at_x_M_c_z_break_b12_200c(double x_asked,
+                                                                 double m_asked,
+								 double c_asked,
+                                                                 double z_asked,
+                                                                 double A_P0,
+                                                                 double A_xc,
+                                                                 double A_beta,
+                                                                 double alpha_m_P0,
+                                                                 double alpha_m_xc,
+                                                                 double alpha_m_beta,
+                                                                 double alpha_z_P0,
+                                                                 double alpha_z_xc,
+                                                                 double alpha_z_beta,
+								 double mcut,
+								 double alphap_m_P0,
+                                                                 double alphap_m_xc,
+                                                                 double alphap_m_beta,
+                                                                 double alpha_c_P0,
+                                                                 double alpha_c_xc,
+                                                                 double alpha_c_beta,
+                                                                 double alpha,
+                                                                 double gamma,
+                                                                 void * pba,
+                                                                 void * tsz)
+
     double get_pressure_P_over_P_delta_at_x_gnfw_500c(double x_asked,
                                                           double P0GNFW,
                                                           double alphaGNFW,
@@ -886,10 +919,6 @@ cdef extern from "class.h":
     double get_y_at_m_and_z(double m, double z, void * ptsz, void * pba)
     double get_theta_at_m_and_z(double m, double z, void * ptsz, void * pba)
     double get_sigma_at_z_and_m(double z_asked,
-                                double m_asked,
-                                void * tsz,
-                                void * pba)
-    double get_dlnsigma_dlnR_at_z_and_m(double z_asked,
                                 double m_asked,
                                 void * tsz,
                                 void * pba)
