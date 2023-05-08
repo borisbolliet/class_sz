@@ -13,6 +13,7 @@
 #include "primordial.h"
 #include "spectra.h"
 #include "nonlinear.h"
+#include "nonlinear_pt.h"
 #include "lensing.h"
 #include "output.h"
 #include "class_sz.h"
@@ -176,6 +177,7 @@ extern "C" {
 		 struct primordial *ppm,
 		 struct spectra *psp,
 		 struct nonlinear *pnl,
+     struct nonlinear_pt *pnlpt,
 		 struct lensing *ple,
      struct tszspectrum *ptsz, //BB: added for class_sz
      struct szcount *pcsz, //BB: added for class_sz
@@ -193,6 +195,7 @@ extern "C" {
 		 struct primordial *ppm,
 		 struct spectra *psp,
 		 struct nonlinear *pnl,
+     struct nonlinear_pt *pnlpt,
 		 struct lensing *ple,
      struct tszspectrum *ptsz, //BB: added for class_sz
      struct szcount *pcsz, //BB: added for class_sz
@@ -210,6 +213,7 @@ extern "C" {
                             struct primordial *ppm,
                             struct spectra *psp,
                             struct nonlinear *pnl,
+                            struct nonlinear_pt *pnlpt,
                             struct lensing *ple,
                             struct tszspectrum *ptsz, //BB: added for class_sz
                             struct szcount *pcsz, //BB: added for class_sz
@@ -227,6 +231,7 @@ extern "C" {
                             struct primordial *ppm,
                             struct spectra *psp,
                             struct nonlinear *pnl,
+                            struct nonlinear_pt *pnlpt,
                             struct lensing *ple,
                             struct tszspectrum *ptsz,
                             struct output *pop,
@@ -241,6 +246,7 @@ extern "C" {
 			   struct primordial *ppm,
 			   struct spectra *psp,
 			   struct nonlinear *pnl,
+         struct nonlinear_pt *pnlpt,
 			   struct lensing *ple,
          struct tszspectrum *ptsz, //BB: added for class_sz
          struct szcount *pcsz, //BB: added for class_sz

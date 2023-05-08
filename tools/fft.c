@@ -15,12 +15,12 @@ static double complex lngamma(double complex z)
 {
   gsl_sf_result lnr, phi;
   gsl_sf_lngamma_complex_e(creal(z), cimag(z), &lnr, &phi);
-  return lnr.val + I*phi.val;
+  return lnr.val + MY_I*phi.val;
 }
 
 
 static double complex polar (double r, double phi) {
-  return (r*cos(phi) +I*(r*sin(phi)));
+  return (r*cos(phi) +MY_I*(r*sin(phi)));
 }
 
 // static double complex lngamma(double complex z) {
@@ -29,7 +29,7 @@ static double complex polar (double r, double phi) {
 
 
 static void lngamma_4(double x, double y, double* lnr, double* arg) {
-    double complex w = lngamma(x+y*I);
+    double complex w = lngamma(x+y*MY_I);
     if(lnr) *lnr = creal(w);
     if(arg) *arg = cimag(w);
 }
@@ -76,7 +76,7 @@ void compute_u_coefficients(int N, double mu, double q, double L, double kcrc, d
     for(m = N/2+1; m < N; m++)
         u[m] = conj(u[N-m]);
     if((N % 2) == 0)
-      u[N/2] = (creal(u[N/2]) + I*0.0);
+      u[N/2] = (creal(u[N/2]) + MY_I*0.0);
 }
 
 void fht(int N, const double r[], const double complex a[], double k[], double complex b[], double mu,

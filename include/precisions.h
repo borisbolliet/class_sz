@@ -78,7 +78,7 @@ class_precision_parameter(Omega0_cdm_min_synchronous,double,1.e-10)
  * \f$ Y_\mathrm{He} \f$ for given \f$ \omega_b \f$ and \f$ N_\mathrm{eff} \f$.
  */
 class_string_parameter(sBBN_file,"/bbn/sBBN_2017.dat","sBBN file")
-// 
+//
 // class_string_parameter(A10_file,"/sz_auxiliary_files/class_sz_lnIgnfw-and-d2lnIgnfw-vs-lnell-over-ell500_A10.txt","A10 file")
 // class_string_parameter(P13_file,"/sz_auxiliary_files/class_sz_lnIgnfw-and-d2lnIgnfw-vs-lnell-over-ell500_P13.txt","P13 file")
 
@@ -432,6 +432,9 @@ class_precision_parameter(nonlinear_min_k_max,double,20.0) /**< when
                                is still controlled by P_k_max_1/Mpc or
                                P_k_max_h/Mpc even if they are
                                smaller */
+
+class_precision_parameter(nmax_nlpt,int,128)/**< value of k in 1/Mpc below which non-linear corrections will be neglected */
+
 
 /** parameters relevant for HALOFIT computation */
 

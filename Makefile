@@ -65,6 +65,8 @@ LDFLAG += -lomp
 # (with no slash at the end: e.g. hyrec or ../hyrec)
 HYREC = hyrec
 
+## needed for class-pt
+OPENBLAS = /Users/boris/opt/miniconda3/lib/libopenblas_armv8p-r0.3.21.dylib
 #
 # GSL          = gsl
 # GSL_INC_PATH = /usr/local/include/
@@ -99,9 +101,9 @@ endif
 %.o:  %.c .base
 	cd $(WRKDIR);$(CC) $(OPTFLAG) $(OMPFLAG) $(CCFLAG) $(INCLUDES) -c ../$< -o $*.o
 
-TOOLS = growTable.o dei_rkck.o sparse.o evolver_rkck.o  evolver_ndf15.o arrays.o parser.o quadrature.o hyperspherical.o common.o trigonometric_integrals.o r8lib.o class_sz_tools.o Patterson.o fft.o
+TOOLS = growTable.o dei_rkck.o sparse.o evolver_rkck.o  evolver_ndf15.o arrays.o parser.o quadrature.o hyperspherical.o common.o trigonometric_integrals.o r8lib.o class_sz_tools.o Patterson.o fft.o fft_class_pt.o
 
-SOURCE = input.o background.o thermodynamics.o perturbations.o primordial.o nonlinear.o transfer.o spectra.o lensing.o class_sz.o class_sz_clustercounts.o
+SOURCE = input.o background.o thermodynamics.o perturbations.o primordial.o nonlinear.o nonlinear_pt.o transfer.o spectra.o lensing.o class_sz.o class_sz_clustercounts.o
 
 INPUT = input.o
 
@@ -120,6 +122,8 @@ PRIMORDIAL = primordial.o
 SPECTRA = spectra.o
 
 NONLINEAR = nonlinear.o
+
+NONLINEAR_PT = nonlinear_pt.o
 
 LENSING = lensing.o
 
@@ -164,7 +168,7 @@ libclass.a: $(TOOLS) $(SOURCE) $(EXTERNAL)
 class_sz: $(TOOLS) $(SOURCE) $(EXTERNAL) $(OUTPUT) $(CLASS_SZ)
 	#$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -g -o class $(addprefix build/,$(notdir $^)) -lm -L/home/runner/work/SOLikeT/SOLikeT/gsl-2.6/lib -lgsl -lgslcblas
 	 # $(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -g -o class $(addprefix build/,$(notdir $^)) -L/usr/local/lib -L/Users/boris/miniconda/lib -lgsl -lgslcblas -lfftw3 -lm
-	 $(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -g -o class_sz $(addprefix build/,$(notdir $^)) -lgsl -lgslcblas -lfftw3 -lm -L/Users/boris/opt/miniconda3/lib
+	 $(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -g -o class_sz $(addprefix build/,$(notdir $^)) $(OPENBLAS) -lpthread  -lgsl -lgslcblas -lfftw3 -lm -L/Users/boris/opt/miniconda3/lib
 
 	 # $(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -g -o class $(addprefix build/,$(notdir $^)) -L/usr/local/lib -L/Users/boris/opt/anaconda3/lib -L/opt/homebrew/lib -lgsl -lgslcblas -lfftw3 -lm
 	 # $(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -g -o class $(addprefix build/,$(notdir $^)) -L/usr/local/lib -lgsl -lgslcblas -lm

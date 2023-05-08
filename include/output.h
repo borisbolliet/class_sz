@@ -11,7 +11,7 @@
  * written in output files
  */
 
-#define _Z_PK_NUM_MAX_ 250
+
 
 /**
  * Structure containing various informations on the output format,
@@ -86,6 +86,7 @@ extern "C" {
                   struct primordial * ppm,
                   struct transfers * ptr,
                   struct spectra * psp,
+                  struct nonlinear_pt * pnlpt,
                   struct nonlinear * pnl,
                   struct lensing * ple,
                   struct output * pop
@@ -98,6 +99,61 @@ extern "C" {
                 struct lensing * ple,
                 struct output * pop
                 );
+
+    int output_pk_nl_pt(
+                     struct background * pba,
+                     struct perturbs * ppt,
+                     struct nonlinear_pt * pnlpt,
+                     struct spectra * psp,
+                     struct output * pop
+                     );
+
+    int output_open_pk_nlpt_file(
+                            struct background * pba,
+                            struct nonlinear_pt *pnlpt,
+                            struct spectra * psp,
+                            struct output * pop,
+                            FILE ** pkfile,
+                            FileName filename,
+                            char * first_line,
+                            double z
+                            );
+
+    int output_open_pk_rsd_0_file(
+                                  struct background * pba,
+                                  struct nonlinear_pt * pnlpt,
+                                  struct spectra * psp,
+                                  struct output * pop,
+                                  FILE ** pkfile,
+                                  FileName filename,
+                                  char * first_line,
+                                  double z
+                                  );
+
+
+    int output_open_pk_rsd_2_file(
+                                  struct background * pba,
+                                                               struct nonlinear_pt * pnlpt,
+                                  struct spectra * psp,
+                                  struct output * pop,
+                                  FILE ** pkfile,
+                                  FileName filename,
+                                  char * first_line,
+                                  double z
+                                  );
+
+    int output_open_pk_rsd_4_file(
+                                  struct background * pba,
+                                                               struct nonlinear_pt * pnlpt,
+                                  struct spectra * psp,
+                                  struct output * pop,
+                                  FILE ** pkfile,
+                                  FileName filename,
+                                  char * first_line,
+                                  double z
+                                  );
+
+
 
   int output_pk(
                 struct background * pba,
@@ -174,6 +230,92 @@ extern "C" {
                             double one_k,
                             double one_pk
                             );
+
+    int output_one_line_many_columns_of_pk(
+                              FILE * tkfile,
+                              double one_k,
+                              double one_pk,
+                              double two_pk,
+                              double three_pk,
+                              double four_pk,
+                              double five_pk,
+                              double six_pk,
+                              double seven_pk,
+                              double eight_pk,
+                              double nine_pk
+                              );
+
+    int output_one_line_many_columns_of_pk_rsd(
+                                           FILE * tkfile,
+                                           double one_k,
+                                           double one_pk,
+                                           double two_pk,
+                                           double three_pk,
+                                           double four_pk,
+                                           double five_pk,
+                                           double six_pk,
+                                           double seven_pk,
+                                           double eight_pk,
+                                           double nine_pk,
+                                           double ten_pk,
+                                           double eleven_pk,
+                                           double twelve_pk,
+                                           double thirteen_pk,
+                                               double fourteen_pk,
+                                               double fifteen_pk,
+                                               double sixteen_pk
+                                           );
+
+    int output_one_line_many_columns_of_pk_rsd_2(
+                                               FILE * tkfile,
+                                               double one_k,
+                                               double one_pk,
+                                               double two_pk,
+                                               double three_pk,
+                                               double four_pk,
+                                               double five_pk,
+                                               double six_pk,
+                                               double seven_pk,
+                                               double eight_pk,
+                                               double nine_pk,
+                                                 double ten_pk,
+                                                 double eleven_pk,
+                                                 double twelve_pk,
+                                                 double thirteen_pk,
+                                                 double fourteen_pk
+                                               );
+
+    int output_one_line_many_columns_of_pk_rsd_4(
+                                                 FILE * tkfile,
+                                                 double one_k,
+                                                 double one_pk,
+                                                 double two_pk,
+                                                 double three_pk,
+                                                 double four_pk,
+                                                 double five_pk,
+                                                 double six_pk,
+                                                 double seven_pk,
+                                                 double eight_pk,
+                                                 double nine_pk,
+                                                 double ten_pk,
+                                                 double eleven_pk,
+                                                 double twelve_pk
+                                                 );
+
+
+
+
+
+  int output_open_pk_nl_file(
+                             struct background * pba,
+                             struct nonlinear_pt * pnlpt,
+                             struct output * pop,
+                             FILE ** pkfile,
+                             FileName filename,
+                             char * first_line,
+                             double z,
+                             int k_size
+                             );
 
 #ifdef __cplusplus
 }

@@ -14,6 +14,7 @@ int main(int argc, char **argv) {
   struct perturbs pt;         /* for source functions */
   struct primordial pm;       /* for primordial spectra */
   struct nonlinear nl;        /* for non-linear spectra */
+  struct nonlinear_pt nlpt;
   struct transfers tr;        /* for transfer functions */
   struct spectra sp;          /* for output spectra */
   struct lensing le;          /* for lensed spectra */
@@ -25,7 +26,7 @@ int main(int argc, char **argv) {
   //BB: initialize w. additional class_sz structures
   clock_t start, end;
   start = clock();
-  if (input_init_from_arguments(argc, argv,&pr,&ba,&th,&pt,&tr,&pm,&sp,&nl,&le,&tsz,&csz,&op,errmsg) == _FAILURE_) {
+  if (input_init_from_arguments(argc, argv,&pr,&ba,&th,&pt,&tr,&pm,&sp,&nl,&nlpt,&le,&tsz,&csz,&op,errmsg) == _FAILURE_) {
     printf("\n\nError running input_init_from_arguments \n=>%s\n",errmsg);
     return _FAILURE_;
   }
@@ -79,6 +80,11 @@ int main(int argc, char **argv) {
   duration = ((double)end - start)/CLOCKS_PER_SEC;
   // printf("Time taken to execute nonlionear in seconds : %.3e\n", duration);
 
+  if (nonlinear_pt_init(&pr,&ba,&th,&pt,&pm,&nlpt) == _FAILURE_) {
+        printf("\n\nError in nonlinear_pt_init \n=>%s\n",nlpt.error_message);
+        return _FAILURE_;
+    }
+
   start = clock();
   if (transfer_init(&pr,&ba,&th,&pt,&nl,&tr) == _FAILURE_) {
     printf("\n\nError in transfer_init \n=>%s\n",tr.error_message);
@@ -89,7 +95,7 @@ int main(int argc, char **argv) {
   // printf("Time taken to execute transfer in seconds : %.3e\n", duration);
 
   start = clock();
-  if (spectra_init(&pr,&ba,&pt,&pm,&nl,&tr,&sp) == _FAILURE_) {
+  if (spectra_init(&pr,&ba,&pt,&pm,&nl,&nlpt,&tr,&sp) == _FAILURE_) {
     printf("\n\nError in spectra_init \n=>%s\n",sp.error_message);
     return _FAILURE_;
   }
@@ -137,7 +143,7 @@ int main(int argc, char **argv) {
   // printf("Time taken to execute szcountsz in seconds : %.3e\n", duration);
 
   start = clock();
-  if (output_init(&ba,&th,&pt,&pm,&tr,&sp,&nl,&le,&op) == _FAILURE_) {
+  if (output_init(&ba,&th,&pt,&pm,&tr,&sp,&nlpt,&nl,&le,&op) == _FAILURE_) {
     printf("\n\nError in output_init \n=>%s\n",op.error_message);
     return _FAILURE_;
   }

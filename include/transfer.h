@@ -4,6 +4,7 @@
 #define __TRANSFER__
 
 #include "nonlinear.h"
+#include "nonlinear_pt.h"
 #include "hyperspherical.h"
 #include <sys/shm.h>
 #include <sys/stat.h>

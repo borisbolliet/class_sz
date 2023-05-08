@@ -8,6 +8,16 @@
 #include "svnversion.h"
 #include <stdarg.h>
 
+
+//#include <complex.h>
+//#undef I
+
+#include <complex.h>
+#undef I
+#define MY_I 1.0fi
+
+#define _Z_PK_NUM_MAX_ 250
+
 #ifdef _OPENMP
 #include "omp.h"
 #endif

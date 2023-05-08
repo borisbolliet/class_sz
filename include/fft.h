@@ -145,7 +145,6 @@ void fftlog_ComputeXiLM(int l, int m, int N, const double k[],  const double pk[
 void fftlog_ComputeXiLM_cl2gamma(int l, int m, int N, const double k[],  const double pk[], double r[], double xi[], struct tszspectrum * ptsz);
 void fftlog_ComputeXiLMsloz(int l, int m, int N, const double k[], const double pk[], double r[], double xi[],struct tszspectrum * ptsz);
 
-#include <complex.h>
 
 /* Compute the discrete Hankel transform of the function a(r).  See the FFTLog
  * documentation (or the Fortran routine of the same name in the FFTLog

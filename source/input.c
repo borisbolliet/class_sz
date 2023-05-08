@@ -25,6 +25,7 @@ int input_init_from_arguments(
                               struct primordial *ppm,
                               struct spectra *psp,
                               struct nonlinear * pnl,
+                              struct nonlinear_pt *pnlpt,
                               struct lensing *ple,
                               struct tszspectrum *ptsz, //BB: added for class_sz
                               struct szcount *pcsz, //BB: added for class_sz
@@ -174,6 +175,7 @@ int input_init_from_arguments(
                         ppm,
                         psp,
                         pnl,
+                        pnlpt,
                         ple,
                         ptsz, //BB: added for class_sz
                         pcsz, //BB: added for class_sz
@@ -205,6 +207,7 @@ int input_init(
                struct primordial *ppm,
                struct spectra *psp,
                struct nonlinear * pnl,
+               struct nonlinear_pt *pnlpt,
                struct lensing *ple,
                struct tszspectrum *ptsz, //BB: added for class_sz
                struct szcount *pcsz, //BB: added for class_sz
@@ -247,6 +250,7 @@ int input_init(
                                    ppm,
                                    psp,
                                    pnl,
+                                   pnlpt,
                                    ple,
                                    ptsz,
                                    pop,
@@ -468,6 +472,7 @@ int input_init(
                                      ppm,
                                      psp,
                                      pnl,
+                                     pnlpt,
                                      ple,
                                      ptsz, //BB: added for class_sz
                                      pcsz, //BB: added for class_sz
@@ -509,6 +514,7 @@ int input_init(
                                      ppm,
                                      psp,
                                      pnl,
+                                     pnlpt,
                                      ple,
                                      ptsz, //BB: added for class_sz
                                      pcsz, //BB: added for class_sz
@@ -620,6 +626,7 @@ int input_read_precisions(
                           struct primordial *ppm,
                           struct spectra *psp,
                           struct nonlinear * pnl,
+                          struct nonlinear_pt * pnlpt,
                           struct lensing *ple,
                           struct tszspectrum *ptsz,
                           struct output *pop,
@@ -670,6 +677,7 @@ int input_read_parameters(
                           struct primordial *ppm,
                           struct spectra *psp,
                           struct nonlinear * pnl,
+                          struct nonlinear_pt *pnlpt,
                           struct lensing *ple,
                           struct tszspectrum *ptsz,
                           struct szcount *pcsz,
@@ -730,6 +738,7 @@ int input_read_parameters(
                                   ppm,
                                   psp,
                                   pnl,
+                                  pnlpt,
                                   ple,
                                   ptsz, //BB: added for class_sz
                                   pcsz, //BB: added for class_sz
@@ -5161,6 +5170,9 @@ class_read_int("no_tt_noise_in_kSZ2X_cov",ptsz->no_tt_noise_in_kSZ2X_cov);
       pop->z_pk_num = int1;
       for (i=0; i<int1; i++) {
         pop->z_pk[i] = pointer1[i];
+        pnlpt->z_pk[i] = pop->z_pk[i];
+  //      printf("redshift requested %lf\n",pnlpt->z_pk[i]);
+
       }
       free(pointer1);
     }
@@ -5601,13 +5613,27 @@ class_read_int("no_tt_noise_in_kSZ2X_cov",ptsz->no_tt_noise_in_kSZ2X_cov);
 
     class_test(ppt->has_perturbations == _FALSE_, errmsg, "You requested non linear computation but no linear computation. You must set output to tCl or similar.");
 
+      if ((strstr(string1,"pt") != NULL) || (strstr(string1,"Pt") != NULL) || (strstr(string1,"PT") != NULL)) {
+          pnlpt->method = nlpt_spt;
+          pnl->method = nl_none;
+          ppt->has_nl_corrections_based_on_delta_m = _TRUE_;
+          pnlpt->fNL_equil_ortho_switch = fNL_equil_ortho_no; //GC - SWITCH...
+          pnlpt->irres = irres_yes;
+          pnlpt->bias = bias_yes;
+          pnlpt->rsd = rsd_no;
+          pnlpt->AP_effect = AP_effect_no;
+          pnlpt->cb = _TRUE_;
+      }
+
     if ((strstr(string1,"halofit") != NULL) || (strstr(string1,"Halofit") != NULL) || (strstr(string1,"HALOFIT") != NULL)) {
       pnl->method=nl_halofit;
+      pnlpt->method = nlpt_none;
       ppt->k_max_for_pk = MAX(ppt->k_max_for_pk,MAX(ppr->halofit_min_k_max,ppr->nonlinear_min_k_max));
       ppt->has_nl_corrections_based_on_delta_m = _TRUE_;
     }
     if ((strstr(string1,"hmcode") != NULL) || (strstr(string1,"HMCODE") != NULL) || (strstr(string1,"HMcode") != NULL) || (strstr(string1,"Hmcode") != NULL)) {
       pnl->method=nl_HMcode;
+      pnlpt->method = nlpt_none;
       ppt->k_max_for_pk = MAX(ppt->k_max_for_pk,MAX(ppr->hmcode_min_k_max,ppr->nonlinear_min_k_max));
       ppt->has_nl_corrections_based_on_delta_m = _TRUE_;
       class_read_int("extrapolation_method",pnl->extrapolation_method);
@@ -5676,6 +5702,226 @@ class_read_int("no_tt_noise_in_kSZ2X_cov",ptsz->no_tt_noise_in_kSZ2X_cov);
     }
   }
 
+
+
+
+
+//GC -> here you see the source of the issues for the AP... For some reason the fiducial is asked in a different way than how the actual AP switch is used (which is below...) -> you can fix it even if you do not require RSDs...
+
+/** Fiducial Om for AP */
+class_call(parser_read_double(pfc,"Omfid",&param1,&flag1,errmsg),
+           errmsg,
+           errmsg);
+if (flag1 == _TRUE_){
+  pnlpt->OmfidAP = param1;
+}
+else{
+  pnlpt->OmfidAP = 0.31;
+}
+
+
+class_call(parser_read_string(pfc, "FFTLog mode",&(string1),&(flag1),errmsg), errmsg,errmsg);
+
+if (flag1 == _TRUE_){
+  if ((strstr(string1,"Fast") != NULL) || (strstr(string1,"FAST") != NULL) || (strstr(string1,"F") != NULL)) {
+      ppr->nmax_nlpt = 128;
+  }
+  else if ((strstr(string1,"Precise") != NULL) || (strstr(string1,"PRECISE") != NULL) || (strstr(string1,"P") != NULL)) {
+      ppr->nmax_nlpt = 512;
+  }
+  else {
+      ppr->nmax_nlpt = 256;
+  }
+}
+else {
+  ppr->nmax_nlpt = 256;
+}
+
+class_call(parser_read_string(pfc, "Input Pk",&(string1),&(flag1),errmsg), errmsg,errmsg);
+if (flag1 == _TRUE_) {
+  if (strlen(string1)>0) {
+      pnlpt->replace_pk = _TRUE_;
+      strcpy(pnlpt->input_pk,string1);
+  }
+  else{
+    pnlpt->replace_pk = _FALSE_;
+  }
+}
+
+class_call(parser_read_string(pfc, "replace background",&(string1),&(flag1),errmsg), errmsg,errmsg);
+if (flag1 == _TRUE_) {
+  if ((strstr(string1,"Yes") != NULL) || (strstr(string1,"YES") != NULL) || (strstr(string1,"Y") != NULL)){
+    pnlpt->replace_background = _TRUE_;
+    class_call(parser_read_double(pfc,"Hz_replace",&param1,&flag1,errmsg),errmsg,errmsg);
+    fprintf(stderr, "Hz_replace found: H(z)=%f\n", param1);
+    pnlpt->replace_Hz_value = param1;
+    class_call(parser_read_double(pfc,"DAz_replace",&param1,&flag1,errmsg),errmsg,errmsg);
+    fprintf(stderr, "DAz_replace found: DA(z)=%f\n", param1);
+    pnlpt->replace_DAz_value = param1;
+    class_call(parser_read_double(pfc,"Dz_replace",&param1,&flag1,errmsg),errmsg,errmsg);
+    pnlpt->replace_Dz_value = param1;
+    class_call(parser_read_double(pfc,"fz_replace",&param1,&flag1,errmsg),errmsg,errmsg);
+    pnlpt->replace_fz_value = param1;
+  }else{
+    pnlpt->replace_background = _FALSE_;
+    class_call(parser_read_double(pfc,"Hz_replace",&param1,&flag1,errmsg),errmsg,errmsg);
+    class_call(parser_read_double(pfc,"DAz_replace",&param1,&flag1,errmsg),errmsg,errmsg);
+    class_call(parser_read_double(pfc,"Dz_replace",&param1,&flag1,errmsg),errmsg,errmsg);
+    class_call(parser_read_double(pfc,"fz_replace",&param1,&flag1,errmsg),errmsg,errmsg);
+  }
+}
+
+class_call(parser_read_string(pfc, "no-wiggle",&(string1),&(flag1),errmsg), errmsg,errmsg);
+if (flag1 == _TRUE_) {
+  if ((strstr(string1,"Yes") != NULL) || (strstr(string1,"YES") != NULL) || (strstr(string1,"Y") != NULL)){
+    pnlpt->no_wiggle = _TRUE_;
+  }else{
+    pnlpt->no_wiggle = _FALSE_;
+  }
+}else{
+  pnlpt->no_wiggle = _FALSE_;
+}
+
+class_call(parser_read_double(pfc,"alpha_rs",&param1,&flag1,errmsg),errmsg,errmsg);
+if (flag1 == _TRUE_) {
+  pnlpt->alpha_rs = param1;
+}else{
+  pnlpt->alpha_rs = 1.0;
+}
+
+class_call(parser_read_string(pfc, "output format",&(string1),&(flag1),errmsg), errmsg,errmsg);
+  if (flag1 == _TRUE_) {
+    if ((strstr(string1,"Fast") != NULL) || (strstr(string1,"FAST") != NULL) || (strstr(string1,"F") != NULL)) {
+      pnlpt->fast_output = _TRUE_;
+    } else {
+      pnlpt->fast_output = _FALSE_;
+    }
+  }
+
+      class_call(parser_read_string(pfc,"cb",&(string1),&(flag1),errmsg),errmsg,errmsg);
+      if (flag1 == _TRUE_) {
+        if ((strstr(string1,"No") != NULL) || (strstr(string1,"NO") != NULL) || (strstr(string1,"N") != NULL)) {
+            pnlpt->cb = _FALSE_;
+            // ppt->has_cb = _FALSE_;
+            // pba->has_cb = _FALSE_;
+        }
+        else {
+            pnlpt->cb = _TRUE_;
+            // ppt->has_cb = _TRUE_;
+            // pba->has_cb = _TRUE_;
+        }
+      }
+
+
+//GC -> here we include fNL...
+
+if (pnlpt->method == nlpt_spt) {
+
+    //pnlpt->fNL_equil_ortho_switch = fNL_equil_ortho_no; //GC - SWITCH ~> maybe there is a better way...
+
+class_call(parser_read_string(pfc,
+                              "PNG",
+                              &(string1),
+                              &(flag1),
+                              errmsg),
+           errmsg,
+           errmsg);
+
+    if (flag1 == _TRUE_){
+
+    if ((strstr(string1,"YES") != NULL) || (strstr(string1,"Yes") != NULL) || (strstr(string1,"Y") != NULL)) {
+        pnlpt->fNL_equil_ortho_switch = fNL_equil_ortho_yes;
+    }
+
+    else {
+        pnlpt->fNL_equil_ortho_switch = fNL_equil_ortho_no;
+    }
+}
+
+    else {
+        pnlpt->fNL_equil_ortho_switch = fNL_equil_ortho_no;
+    }
+
+}
+
+
+// Here we include IR resummation
+
+if (pnlpt->method == nlpt_spt) {
+
+class_call(parser_read_string(pfc,
+                              "IR resummation",
+                              &(string1),
+                              &(flag1),
+                              errmsg),
+           errmsg,
+           errmsg);
+
+    if ((strstr(string1,"NO") != NULL) || (strstr(string1,"No") != NULL) || (strstr(string1,"N") != NULL)) {
+        pnlpt->irres = irres_no;
+    }
+
+    else {
+        pnlpt->irres = irres_yes;
+    }
+}
+
+// Here we include bias tracers
+if (pnlpt->method == nlpt_spt) {
+  class_call(parser_read_string(pfc,
+                                "Bias tracers",
+                                &(string1),
+                                &(flag1),
+                                errmsg),
+             errmsg,
+             errmsg);
+
+  if ((strstr(string1,"NO") != NULL) || (strstr(string1,"No") != NULL) || (strstr(string1,"N") != NULL)) {
+      pnlpt->bias = bias_no;
+      // ppt->has_bias = _FALSE_;
+  }
+
+  else {
+      pnlpt->bias = bias_yes;
+      // ppt->has_bias = _TRUE_;
+  }
+}
+
+
+// Here we include RSD
+if (pnlpt->method == nlpt_spt) {
+
+  class_call(parser_read_string(pfc,
+                                "RSD",
+                                &(string1),
+                                &(flag1),
+                                errmsg),
+             errmsg,
+             errmsg);
+
+  if ((strstr(string1,"Y") != NULL) || (strstr(string1,"Yes") != NULL) || (strstr(string1,"YES") != NULL)) {
+      pnlpt->rsd = rsd_yes;
+      // ppt->has_RSD = _TRUE_;
+
+      class_call(parser_read_string(pfc,"AP",&(string1),&(flag1),errmsg),errmsg,errmsg);
+
+      if ((strstr(string1,"Y") != NULL) || (strstr(string1,"Yes") != NULL) || (strstr(string1,"YES") != NULL)) {
+          pnlpt->AP_effect = AP_effect_yes;
+      }
+
+      else {
+          pnlpt->AP_effect = AP_effect_no;
+      }
+
+
+  }
+
+  else {
+      pnlpt->rsd = rsd_no;
+  }
+
+}
+
   /** (g) amount of information sent to standard output (none if all set to zero) */
 
   class_read_int("background_verbose",
@@ -5698,6 +5944,9 @@ class_read_int("no_tt_noise_in_kSZ2X_cov",ptsz->no_tt_noise_in_kSZ2X_cov);
 
   class_read_int("nonlinear_verbose",
                  pnl->nonlinear_verbose);
+
+  class_read_int("nonlinear_pt_verbose",
+                   pnlpt->nonlinear_pt_verbose);
 
   class_read_int("lensing_verbose",
                  ple->lensing_verbose);
@@ -5924,6 +6173,7 @@ int input_default_params(
                          struct primordial *ppm,
                          struct spectra *psp,
                          struct nonlinear * pnl,
+                         struct nonlinear_pt *pnlpt,
                          struct lensing *ple,
                          struct tszspectrum *ptsz, //BB: added for class_sz
                          struct szcount *pcsz, //BB: added for class_sz
@@ -6189,11 +6439,21 @@ int input_default_params(
   /** - nonlinear structure */
 
   pnl->method = nl_none;
+  pnlpt->method = nlpt_none;
   pnl->extrapolation_method = extrap_max_scaled;
   pnl->has_pk_eq = _FALSE_;
 
   pnl->feedback = nl_emu_dmonly;
   pnl->z_infinity = 10.;
+
+  pnlpt->z_pk_num = 1;
+  pnlpt->z_pk[0] = 0.;
+
+  pnlpt->fast_output = _FALSE_;
+  pnlpt->cb = _TRUE_;
+
+  pnlpt->fNL_equil_ortho_switch = fNL_equil_ortho_no; //GC - SWITCH...
+
 
   /** - transfer structure */
 
@@ -6240,7 +6500,7 @@ int input_default_params(
   pnl->nonlinear_verbose = 0;
   ple->lensing_verbose = 0;
   pop->output_verbose = 0;
-
+  pnlpt->nonlinear_pt_verbose = 0;
   //BB: SZ parameters default values
 
 
@@ -7217,6 +7477,7 @@ int input_try_unknown_parameters(double * unknown_parameter,
   struct primordial pm;       /* for primordial spectra */
   struct spectra sp;          /* for output spectra */
   struct nonlinear nl;        /* for non-linear spectra */
+  struct nonlinear_pt nlpt;
   struct lensing le;          /* for lensed spectra */
   struct tszspectrum tsz;     /* for tsz spectrum */ //BB: added for class_sz
   struct szcount csz;         /* for sz cluster count */ //BB: added for class_sz
@@ -7246,6 +7507,7 @@ int input_try_unknown_parameters(double * unknown_parameter,
                                    &pm,
                                    &sp,
                                    &nl,
+                                   &nlpt,
                                    &le,
                                    &tsz,
                                    &op,
@@ -7262,6 +7524,7 @@ int input_try_unknown_parameters(double * unknown_parameter,
                                    &pm,
                                    &sp,
                                    &nl,
+                                   &nlpt,
                                    &le,
                                    &tsz,
                                    &csz,
@@ -7376,7 +7639,7 @@ int input_try_unknown_parameters(double * unknown_parameter,
     if (input_verbose>2)
       printf("Stage 7: spectra\n");
     sp.spectra_verbose = 0;
-    class_call_except(spectra_init(&pr,&ba,&pt,&pm,&nl,&tr,&sp),
+    class_call_except(spectra_init(&pr,&ba,&pt,&pm,&nl,&nlpt,&tr,&sp),
                       sp.error_message,
                       errmsg,
                       transfer_free(&tr);nonlinear_free(&nl);primordial_free(&pm);perturb_free(&pt);thermodynamics_free(&th);background_free(&ba)
@@ -7470,6 +7733,7 @@ int input_get_guess(double *xguess,
   struct primordial pm;       /* for primordial spectra */
   struct spectra sp;          /* for output spectra */
   struct nonlinear nl;        /* for non-linear spectra */
+  struct nonlinear_pt nlpt;
   struct lensing le;          /* for lensed spectra */
   struct tszspectrum tsz;     //BB: added for class_sz
   struct szcount csz;         //BB: added for class_sz
@@ -7491,6 +7755,7 @@ int input_get_guess(double *xguess,
                                    &pm,
                                    &sp,
                                    &nl,
+                                   &nlpt,
                                    &le,
                                    &tsz, //BB: added for class_sz
                                    //&csz, //BB: added for class_sz
@@ -7508,6 +7773,7 @@ int input_get_guess(double *xguess,
                                    &pm,
                                    &sp,
                                    &nl,
+                                   &nlpt,
                                    &le,
                                    &tsz, //BB: added for class_sz
                                    &csz, //BB: added for class_sz
