@@ -3012,6 +3012,8 @@ int nonlinear_pt_init(
                 ddlnpk_l_full[index_tau * pnlpt->k_size + index_k] = ddlnpk_l[index_k];
                 //  pnlpt->nl_corr_density[index_tau * pnlpt->k_size + index_k] = 1.;
 
+// printf(" lnpk_l_full %.16f ",lnpk_l_full[index_tau * pnlpt->k_size + index_k]); //GC!
+// exit(0);
                 //GC -> see that the _full ones are filled...
 
                 //lntk_l_full[index_tau * pnlpt->k_size + index_k]=lntk_l[index_k]; //GC!
@@ -3453,6 +3455,9 @@ int nonlinear_pt_init(
 
                 for (index_k = 0; index_k < pnlpt->k_size; index_k++)
                 {
+
+          // printf("pnlpt->ln_pk_nl[%d] = %.5e %.5e\n",index_k,pk_nl[index_k],pk_Id2d2[index_k]);
+
                     pnlpt->ln_pk_nl[i_z * pnlpt->k_size + index_k] = log(pk_nl[index_k]);
                     pnlpt->ln_pk_Id2d2[i_z * pnlpt->k_size + index_k] = log(pk_Id2d2[index_k]);
                     pnlpt->ln_pk_Id2d2_2[i_z * pnlpt->k_size + index_k] = log(pk_Id2d2_2[index_k]);
@@ -4573,7 +4578,7 @@ int nonlinear_pt_pk_l(
                     }
                 }
                 //printf("Omegacdm=%f   Omegab=%f",pba->Omega0_cdm,pba->Omega0_b);
-                //printf("k=%f source_m=%f   source_cdmb=%f\n",pnlpt->k[index_k],ppt->sources[index_md][index_ic1 * ppt->tp_size[index_md] + ppt->index_tp_delta_m][index_tau * ppt->k_size[index_md] + index_k],source_ic1);
+                // printf("k=%f source_m=%.8e   source_cdmb=%.8e\n",pnlpt->k[index_k],ppt->sources[index_md][index_ic1 * ppt->tp_size[index_md] + ppt->index_tp_delta_m][index_tau * ppt->k_size[index_md] + index_k],source_ic1);
 
                 // source_ic1 are transfer functions
 
@@ -4613,7 +4618,8 @@ int nonlinear_pt_pk_l(
 
             //lnpPRIMk[index_k] = log(pPRIMk_l[index_k]); //GC!
 
-            //printf("%lf",pk_l[index_k]);
+            // printf("pk_l[index_k] %.3e %lf",lnk[index_k],pk_l[index_k]);
+            // exit(0);
             //printf("\n");
         }
         free(primordial_pk);
@@ -5359,6 +5365,9 @@ class_alloc(pk_12,pnlpt->k_size * sizeof(double),pnlpt->error_message);*/
                            pnlpt->error_message);
 
                 logkPdiscr[index_ir] = log(kbin2) + logPbin2;
+                // printf("%.16f ",logkPdiscr[index_ir]); //GC!
+                // exit(0);
+
             }
 
             else
@@ -5863,13 +5872,14 @@ class_alloc(pk_12,pnlpt->k_size * sizeof(double),pnlpt->error_message);*/
         //GC!
         input_real_transfer[index_kd] = Tbin[index_kd] * exp(-1. * index_kd * b_transfer * Delta);
         input_imag_transfer[index_kd] = 0.;
-        //printf("%.16f",Tbin[index_kd]); //GC!
+        // printf("%.16f ",Pbin[index_kd]); //GC!
         //printf("%e",Tbin[index_kd]); //GC!
         //printf("%.20f",Tbin[index_kd]); //GC!
         //printf("%.16f",Tbin[index_kd] * exp(-1.* index_kd * b_transfer* Delta));
         //printf("%.16e",Tnw[index_kd]); //GC!
         //printf("\n");
     }
+    // exit(0);
 
     //printf("{--}{--}{--}{--}{--}{--}{--}{--}{--}{--}{--}{--}{--}{--}{--}{--}");
     //printf("\n");
@@ -5902,15 +5912,15 @@ class_alloc(pk_12,pnlpt->k_size * sizeof(double),pnlpt->error_message);*/
      }
  */
 
-    /* printf("Start of cn's\n");
-      for (size_t i=0; i< Nmax+1; i++){
-          printf("%e %e\n",output_real[i],output_imag[i]);
-     // printf("%f %f\n",out[i][0],out[i][1]);
-      //    printf("%e %e\n",output_real_1[i],output_imag_1[i]);
-     //    printf("%e %e\n",out[i][0],out[i][1]);
-      }
-      printf("End of cn's\n");
-    */
+// printf("Start of cn's\n");
+//       for (size_t i=0; i< Nmax+1; i++){
+//           printf("%e %e %e\n",input_real[i],output_real[i],output_imag[i]);
+//      // printf("%f %f\n",out[i][0],out[i][1]);
+//       //    printf("%e %e\n",output_real_1[i],output_imag_1[i]);
+//      //    printf("%e %e\n",out[i][0],out[i][1]);
+//       }
+//       printf("End of cn's\n");
+// exit(0);
 
     double complex *cmsym;
     class_alloc(cmsym, (Nmax + 1) * sizeof(complex double), pnlpt->error_message);
@@ -6102,7 +6112,8 @@ class_alloc(pk_12,pnlpt->k_size * sizeof(double),pnlpt->error_message);*/
         P22[index_j] = creal(cpow(kdisc[index_j], 3.) * f22[index_j] * exp(-pow(kdisc[index_j] / cutoff, 6.)));
         P1loop[index_j] = 0. * Ptree[index_j] + (P13[index_j] + P22[index_j]);
         //        P_CTR[index_j] = kdisc[index_j] * kdisc[index_j] * Pbin[index_j];
-        //         printf("%le %le\n",kdisc[j],P22[j]);
+                // printf("%le %le\n",kdisc[index_j],P22[index_j]);
+                // exit(0);
 
         if (SWITCH_index == 1) {
 
@@ -6337,8 +6348,10 @@ class_alloc(pk_12,pnlpt->k_size * sizeof(double),pnlpt->error_message);*/
             //pk_nl_fNL[index_k] = pk_nl_fNL_out + 5000.; //GC -> because log can become negative... WILL NEED TO CHECK NUMBERS, if 5000 is enough!!! Would something change if I had chosen 50000? Would it have caused errors?
             pk_nl_fNL[index_k] = pk_nl_fNL_out + large_for_logs_fNL; //+ 1.*epsilon_for_logs_fNL;
 
-            //printf("%.16e %.16e\n",pnlpt->k[index_k],pk_nl_fNL[index_k]-1.*large_for_logs_fNL); //GC! TEST!!!
-
+            // printf("%.16e %.16e\n",pnlpt->k[index_k],pk_nl_fNL[index_k]-1.*large_for_logs_fNL); //GC! TEST!!!
+            // printf("%.16e %.16e\n",pnlpt->k[index_k],pk_nl[index_k]); //GC! TEST!!!
+            //
+            // exit(0);
             //GC - SWITCH -> SEEMS TO WORK FINE!
 
             //GC: ORTHOGONAL -- start

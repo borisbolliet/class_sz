@@ -5802,12 +5802,14 @@ class_call(parser_read_string(pfc, "output format",&(string1),&(flag1),errmsg), 
       if (flag1 == _TRUE_) {
         if ((strstr(string1,"No") != NULL) || (strstr(string1,"NO") != NULL) || (strstr(string1,"N") != NULL)) {
             pnlpt->cb = _FALSE_;
-            // ppt->has_cb = _FALSE_;
+            ppt->has_cb = _FALSE_;
+            // ppt->has_source_delta_cb = _TRUE_;
             // pba->has_cb = _FALSE_;
         }
         else {
             pnlpt->cb = _TRUE_;
-            // ppt->has_cb = _TRUE_;
+            ppt->has_cb = _TRUE_;
+            // ppt->has_source_delta_cb = _TRUE_;
             // pba->has_cb = _TRUE_;
         }
       }
@@ -6290,6 +6292,8 @@ int input_default_params(
   pth->m_idm = 1.e11;
 
   /** - perturbation structure */
+
+  ppt->has_cb = _TRUE_;
 
   ppt->has_cl_cmb_temperature = _FALSE_;
   ppt->has_cl_cmb_polarization = _FALSE_;

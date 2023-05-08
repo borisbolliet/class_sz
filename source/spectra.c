@@ -5852,6 +5852,8 @@ int spectra_pk_nl_bias_at_z_i(
     /** - --> (a) if only values at tau=tau_today are stored and we want P(k,z=0), no need to interpolate */
 
         for (index_k=0; index_k<pnlpt->ln_k_size; index_k++) {
+
+          // printf("output_tot[%d] = %.5e %.5e\n",index_k,pnlpt->ln_pk_nl[i_z*pnlpt->k_size+index_k],pnlpt->ln_pk_Id2d2[i_z*pnlpt->k_size+index_k]);
             output_tot[index_k] = pnlpt->ln_pk_nl[i_z*pnlpt->k_size+index_k];
             output_tot_Id2d2[index_k] = pnlpt->ln_pk_Id2d2[i_z*pnlpt->k_size+index_k];
             output_tot_Id2[index_k] = pnlpt->ln_pk_Id2[i_z*pnlpt->k_size+index_k];
