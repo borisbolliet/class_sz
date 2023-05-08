@@ -11,7 +11,7 @@ extract cosmological parameters.
 # JL 14.06.2017: TODO: check whether we should free somewhere the allocated fc.filename and titles, data (4 times)
 
 """
-from math import exp,log
+from math import exp,log,sqrt,pi
 from collections import defaultdict #BB: added for class_sz
 import numpy as np
 cimport numpy as np
@@ -107,6 +107,7 @@ cdef class Class:
     cdef perturbs pt
     cdef primordial pm
     cdef nonlinear nl
+    cdef nonlinear_pt nlpt
     cdef transfers tr
     cdef spectra sp
     cdef output op
@@ -120,7 +121,10 @@ cdef class Class:
     cpdef object _pars # Dictionary of the parameters
     cpdef object ncp   # Keeps track of the structures initialized, in view of cleaning.
 
-
+    cdef np.ndarray pk_mult
+    cdef np.ndarray kh
+    cdef double fz
+    cdef int output_init
 
 
     cpdef double sigma8_fast
@@ -143,6 +147,10 @@ cdef class Class:
         def __get__(self):
             return self.nl.method
 
+    property nonlinear_pt_method:
+        def __get__(self):
+            return self.nlpt.method
+
 
 #    def set_default(self):
 #        _pars = {
@@ -158,6 +166,7 @@ cdef class Class:
         cpdef char* dumc
         self.allocated = False
         self.computed = False
+        self.output_init = False
         self._pars = {}
         self.fc.size=0
         self.fc.filename = <char*>malloc(sizeof(char)*30)
@@ -249,6 +258,8 @@ cdef class Class:
             transfer_free(&self.tr)
         if "nonlinear" in self.ncp:
             nonlinear_free(&self.nl)
+        if "nonlinear_pt" in self.ncp:
+            nonlinear_pt_free(&self.nlpt)
         if "primordial" in self.ncp:
             primordial_free(&self.pm)
         if "perturb" in self.ncp:
@@ -298,6 +309,9 @@ cdef class Class:
             if "transfer" not in level:
                 level.append("transfer")
         if "transfer" in level:
+            if "nonlinear_pt" not in level:
+                level.append("nonlinear_pt")
+        if "nonlinear_pt" in level:
             if "nonlinear" not in level:
                 level.append("nonlinear")
         if "nonlinear" in level:
@@ -436,7 +450,7 @@ cdef class Class:
         if "input" in level:
             if input_init(&self.fc, &self.pr, &self.ba, &self.th,
                           &self.pt, &self.tr, &self.pm, &self.sp,
-                          &self.nl, &self.le, &self.tsz, &self.csz, &self.op, errmsg) == _FAILURE_:
+                          &self.nl, &self.nlpt, &self.le, &self.tsz, &self.csz, &self.op, errmsg) == _FAILURE_:
                 raise CosmoSevereError(errmsg)
             self.ncp.add("input")
             # This part is done to list all the unread parameters, for debugging
@@ -488,6 +502,14 @@ cdef class Class:
                 raise CosmoComputationError(self.nl.error_message)
             self.ncp.add("nonlinear")
 
+        if "nonlinear_pt" in level:
+            if nonlinear_pt_init(&self.pr, &self.ba, &self.th,
+                              &self.pt, &self.pm, &self.nlpt) == _FAILURE_:
+                self.struct_cleanup()
+                raise CosmoComputationError(self.nlpt.error_message)
+            self.ncp.add("nonlinear_pt")
+
+
         if "transfer" in level:
             if transfer_init(&(self.pr), &(self.ba), &(self.th),
                              &(self.pt), &(self.nl), &(self.tr)) == _FAILURE_:
@@ -497,7 +519,7 @@ cdef class Class:
 
         if "spectra" in level:
             if spectra_init(&(self.pr), &(self.ba), &(self.pt),
-                            &(self.pm), &(self.nl), &(self.tr),
+                            &(self.pm), &(self.nlpt), &(self.nl), &(self.tr),
                             &(self.sp)) == _FAILURE_:
                 self.struct_cleanup()
                 raise CosmoComputationError(self.sp.error_message)
@@ -904,6 +926,27 @@ cdef class Class:
         return
 
 
+    def recompute_nonlinear_pt(self, no_wiggle=False, alpha_rs=1.0, force=False):
+        recompute=False
+        if no_wiggle:
+            if self.nlpt.no_wiggle == _FALSE_:
+                recompute=True
+            self.nlpt.no_wiggle=_TRUE_
+        else:
+            if self.nlpt.no_wiggle == _TRUE_:
+                recompute=True
+            self.nlpt.no_wiggle=_FALSE_
+
+        if self.nlpt.alpha_rs != alpha_rs:
+            self.nlpt.alpha_rs =  alpha_rs
+            recompute = True
+
+        if (recompute or force) and self.allocated:
+            if nonlinear_pt_init(&self.pr, &self.ba, &self.th,&self.pt, &self.pm, &self.nlpt) == _FAILURE_:
+                self.struct_cleanup()
+                raise CosmoComputationError(self.nlpt.error_message)
+            self.ncp.add("nonlinear_pt")
+
 
 
     def raw_cl(self, lmax=-1, nofail=False):
@@ -1255,7 +1298,7 @@ cdef class Class:
         return lum_distance
 
     # Gives the total matter pk for a given (k,z)
-    def pk(self,double k,double z):
+    def pk(self,double k,double z, int no_wiggle=False, double alpha_rs=1.0):
         """
         Gives the total matter pk (in Mpc**3) for a given k (in 1/Mpc) and z (will be non linear if requested to Class, linear otherwise)
 
@@ -1266,21 +1309,260 @@ cdef class Class:
 
         """
         cdef double pk
-        if self.tsz.use_class_sz_fast_mode == 1:
-          pk = self.class_szfast.get_pknl_at_k_and_z(k,z)
-          # pk = self.get_pk_nonlin_at_k_and_z(k/self.h(), z)*self.h()**3
-        else:
-          if (self.pt.has_pk_matter == _FALSE_):
-              raise CosmoSevereError("No power spectrum computed. You must add mPk to the list of outputs.")
+        cdef double pk_Id2d2 #1
+        cdef double pk_Id2 #2
+        cdef double pk_IG2 #2
+        cdef double pk_Id2G2 #4
+        cdef double pk_IG2G2 #5
+        cdef double pk_IFG2 #6
+        cdef double pk_IFG2_0b1 #7
+        cdef double pk_IFG2_0 #8
+        cdef double pk_IFG2_2 #9
+        cdef double pk_CTR #10
+        cdef double pk_CTR_0 #11
+        cdef double pk_CTR_2 #12
+        cdef double pk_CTR_4 #13
+        cdef double pk_Tree #14
+        cdef double pk_Tree_0_vv #15
+        cdef double pk_Tree_0_vd #16
+        cdef double pk_Tree_0_dd #17
+        cdef double pk_Tree_2_vv #18
+        cdef double pk_Tree_2_vd #19
+        cdef double pk_Tree_4_vv #20
+        cdef double pk_0_vv #21
+        cdef double pk_0_vd #22
+        cdef double pk_0_dd #23
+        cdef double pk_2_vv #24
+        cdef double pk_2_vd #25
+        cdef double pk_2_dd #26
+        cdef double pk_4_vv #27
+        cdef double pk_4_vd #28
+        cdef double pk_4_dd #29
+        cdef double pk_0_b1b2 #30
+        cdef double pk_0_b2 #31
+        cdef double pk_0_b1bG2 #32
+        cdef double pk_0_bG2 #33
+        cdef double pk_2_b1b2 #34
+        cdef double pk_2_b2 #35
+        cdef double pk_2_b1bG2 #36
+        cdef double pk_2_bG2 #37
+        cdef double pk_4_b2 #38
+        cdef double pk_4_bG2 #39
+        cdef double pk_4_b1b2 #40
+        cdef double pk_4_b1bG2 #41
+        cdef double pk_2_b2b2 #42
+        cdef double pk_2_b2bG2 #43
+        cdef double pk_2_bG2bG2 #44
+        cdef double pk_4_b2b2 #45
+        cdef double pk_4_b2bG2 #46
+        cdef double pk_4_bG2bG2 #47
+        #GC: it doesn't seem like the order matters... This I need to understand better...
+        #GC -> 47+1. Then, I have 49 to 72 because I have 48+3+9+12=72...
+        cdef double pk_nl_fNL #48
+        cdef double pk_fNLd2 #49
+        cdef double pk_fNLG2 #50
+        #GC...
+        cdef double pk_fNL_0_vv #51
+        cdef double pk_fNL_0_vd #52
+        cdef double pk_fNL_0_dd #53
+        cdef double pk_fNL_2_vv #54
+        cdef double pk_fNL_2_vd #55
+        cdef double pk_fNL_2_dd #56
+        cdef double pk_fNL_4_vv #57
+        cdef double pk_fNL_4_vd #58
+        cdef double pk_fNL_4_dd #59
+        #GC...
+        cdef double pk12_0_b1b2 #60
+        cdef double pk12_0_b2 #61
+        cdef double pk12_0_b1bG2 #62
+        cdef double pk12_0_bG2 #63
+        cdef double pk12_2_b1b2 #64
+        cdef double pk12_2_b2 #65
+        cdef double pk12_2_b1bG2 #66
+        cdef double pk12_2_bG2 #67
+        cdef double pk12_4_b1b2 #68
+        cdef double pk12_4_b2 #69
+        cdef double pk12_4_b1bG2 #70
+        cdef double pk12_4_bG2 #71
+        #GC: ORTHOGONAL -- start
+        cdef double pk_nl_fNL_ortho #72 -> 73
+        cdef double pk_fNLd2_ortho #73 -> 74
+        cdef double pk_fNLG2_ortho #74 -> 75
+        #GC...
+        cdef double pk_fNL_0_vv_ortho #75 -> 76
+        cdef double pk_fNL_0_vd_ortho #76 -> 77
+        cdef double pk_fNL_0_dd_ortho #77 -> 78
+        cdef double pk_fNL_2_vv_ortho #78 -> 79
+        cdef double pk_fNL_2_vd_ortho #79 -> 80
+        cdef double pk_fNL_2_dd_ortho #80 -> 81
+        cdef double pk_fNL_4_vv_ortho #81 -> 82
+        cdef double pk_fNL_4_vd_ortho #82 -> 83
+        cdef double pk_fNL_4_dd_ortho #83 -> 84
+        #GC...
+        cdef double pk12_0_b1b2_ortho #84 -> 85
+        cdef double pk12_0_b2_ortho #85 -> 86
+        cdef double pk12_0_b1bG2_ortho #86 -> 87
+        cdef double pk12_0_bG2_ortho #87 -> 88
+        cdef double pk12_2_b1b2_ortho #88 -> 89
+        cdef double pk12_2_b2_ortho #89 -> 90
+        cdef double pk12_2_b1bG2_ortho #90 -> 91
+        cdef double pk12_2_bG2_ortho #91 -> 92
+        cdef double pk12_4_b1b2_ortho #92 -> 93
+        cdef double pk12_4_b2_ortho #93 -> 94
+        cdef double pk12_4_b1bG2_ortho #94 -> 95
+        cdef double pk12_4_bG2_ortho  #95 -> 96
+        #GC: ORTHOGONAL -- finish
+        #GC -> end here...
+        cdef double pk_velo
+        cdef double pk_cross
+        cdef int dummy
 
-          if (self.nl.method == nl_none):
-              if nonlinear_pk_at_k_and_z(&self.ba,&self.pm,&self.nl,pk_linear,k,z,self.nl.index_pk_m,&pk,NULL)==_FAILURE_:
-                  raise CosmoSevereError(self.nl.error_message)
+        #cdef double large_for_logs_fNL = 1000. #GC...
+
+        cdef double large_for_logs_matter = 5000.
+        cdef double large_for_logs_big = 1000000.
+        cdef double large_for_logs_small = 10.
+
+        #GC: ORTHOGONAL -- start
+        cdef double large_for_logs_fNL = 50000.
+        #GC: ORTHOGONAL -- finish
+
+        cdef double factor_fNL = sqrt(self.pm.A_s) * (1944./625.) * (pi**4.) #GC: multiplied already by sqrt(As) * (1944/625*pi^4), so the user only needs to multiply by fNL...
+
+
+
+        if (self.nlpt.method == 0):
+          if self.tsz.use_class_sz_fast_mode == 1:
+            pk = self.class_szfast.get_pknl_at_k_and_z(k,z)
+            # pk = self.get_pk_nonlin_at_k_and_z(k/self.h(), z)*self.h()**3
           else:
-              if nonlinear_pk_at_k_and_z(&self.ba,&self.pm,&self.nl,pk_nonlinear,k,z,self.nl.index_pk_m,&pk,NULL)==_FAILURE_:
-                  raise CosmoSevereError(self.nl.error_message)
+            if (self.pt.has_pk_matter == _FALSE_):
+                raise CosmoSevereError("No power spectrum computed. You must add mPk to the list of outputs.")
 
-        return pk
+            if (self.nl.method == nl_none):
+                if nonlinear_pk_at_k_and_z(&self.ba,&self.pm,&self.nl,pk_linear,k,z,self.nl.index_pk_m,&pk,NULL)==_FAILURE_:
+                    raise CosmoSevereError(self.nl.error_message)
+            else:
+                if nonlinear_pk_at_k_and_z(&self.ba,&self.pm,&self.nl,pk_nonlinear,k,z,self.nl.index_pk_m,&pk,NULL)==_FAILURE_:
+                    raise CosmoSevereError(self.nl.error_message)
+
+          return pk
+        else:
+          self.recompute_nonlinear_pt(no_wiggle=no_wiggle, alpha_rs=alpha_rs)
+          # result = myres =
+          myres = spectra_pk_nl_at_k_and_z(&self.ba,&self.pm,&self.sp,&self.nl,&self.nlpt,k,z,&pk,&pk_Id2d2,&pk_Id2,&pk_IG2,&pk_Id2G2,&pk_IG2G2,&pk_IFG2,&pk_IFG2_0b1,&pk_IFG2_0,&pk_IFG2_2,&pk_CTR,&pk_CTR_0,&pk_CTR_2,&pk_CTR_4,&pk_Tree,&pk_Tree_0_vv,&pk_Tree_0_vd,&pk_Tree_0_dd,&pk_Tree_2_vv,&pk_Tree_2_vd,&pk_Tree_4_vv,&pk_0_vv,&pk_0_vd,&pk_0_dd,&pk_2_vv,&pk_2_vd,&pk_2_dd,&pk_4_vv,&pk_4_vd,&pk_4_dd,&pk_0_b1b2,&pk_0_b2,&pk_0_b1bG2,&pk_0_bG2,&pk_2_b1b2,&pk_2_b2,&pk_2_b1bG2,&pk_2_bG2,&pk_4_b2,&pk_4_bG2,&pk_4_b1b2,&pk_4_b1bG2,&pk_2_b2b2,&pk_2_b2bG2,&pk_2_bG2bG2,&pk_4_b2b2,&pk_4_b2bG2,&pk_4_bG2bG2,&pk_nl_fNL,&pk_fNLd2,&pk_fNLG2,&pk_fNL_0_vv,&pk_fNL_0_vd,&pk_fNL_0_dd,&pk_fNL_2_vv,&pk_fNL_2_vd,&pk_fNL_2_dd,&pk_fNL_4_vv,&pk_fNL_4_vd,&pk_fNL_4_dd,&pk12_0_b1b2,&pk12_0_b2,&pk12_0_b1bG2,&pk12_0_bG2,&pk12_2_b1b2,&pk12_2_b2,&pk12_2_b1bG2,&pk12_2_bG2,&pk12_4_b1b2,&pk12_4_b2,&pk12_4_b1bG2,&pk12_4_bG2,&pk_nl_fNL_ortho,&pk_fNLd2_ortho,&pk_fNLG2_ortho,&pk_fNL_0_vv_ortho,&pk_fNL_0_vd_ortho,&pk_fNL_0_dd_ortho,&pk_fNL_2_vv_ortho,&pk_fNL_2_vd_ortho,&pk_fNL_2_dd_ortho,&pk_fNL_4_vv_ortho,&pk_fNL_4_vd_ortho,&pk_fNL_4_dd_ortho,&pk12_0_b1b2_ortho,&pk12_0_b2_ortho,&pk12_0_b1bG2_ortho,&pk12_0_bG2_ortho,&pk12_2_b1b2_ortho,&pk12_2_b2_ortho,&pk12_2_b1bG2_ortho,&pk12_2_bG2_ortho,&pk12_4_b1b2_ortho,&pk12_4_b2_ortho,&pk12_4_b1bG2_ortho,&pk12_4_bG2_ortho)
+          # if  myres =
+          # spectra_pk_nl_at_k_and_z(&self.ba,&self.pm,&self.sp,&self.nl,&self.nlpt,k,z,&pk,&pk_Id2d2,&pk_Id2,&pk_IG2,&pk_Id2G2,&pk_IG2G2,&pk_IFG2,&pk_IFG2_0b1,&pk_IFG2_0,&pk_IFG2_2,&pk_CTR,&pk_CTR_0,&pk_CTR_2,&pk_CTR_4,&pk_Tree,&pk_Tree_0_vv,&pk_Tree_0_vd,&pk_Tree_0_dd,&pk_Tree_2_vv,&pk_Tree_2_vd,&pk_Tree_4_vv,&pk_0_vv,&pk_0_vd,&pk_0_dd,&pk_2_vv,&pk_2_vd,&pk_2_dd,&pk_4_vv,&pk_4_vd,&pk_4_dd,&pk_0_b1b2,&pk_0_b2,&pk_0_b1bG2,&pk_0_bG2,&pk_2_b1b2,&pk_2_b2,&pk_2_b1bG2,&pk_2_bG2,&pk_4_b2,&pk_4_bG2,&pk_4_b1b2,&pk_4_b1bG2,&pk_2_b2b2,&pk_2_b2bG2,&pk_2_bG2bG2,&pk_4_b2b2,&pk_4_b2bG2,&pk_4_bG2bG2,&pk_nl_fNL,&pk_fNLd2,&pk_fNLG2,&pk_fNL_0_vv,&pk_fNL_0_vd,&pk_fNL_0_dd,&pk_fNL_2_vv,&pk_fNL_2_vd,&pk_fNL_2_dd,&pk_fNL_4_vv,&pk_fNL_4_vd,&pk_fNL_4_dd,&pk12_0_b1b2,&pk12_0_b2,&pk12_0_b1bG2,&pk12_0_bG2,&pk12_2_b1b2,&pk12_2_b2,&pk12_2_b1bG2,&pk12_2_bG2,&pk12_4_b1b2,&pk12_4_b2,&pk12_4_b1bG2,&pk12_4_bG2,&pk_nl_fNL_ortho,&pk_fNLd2_ortho,&pk_fNLG2_ortho,&pk_fNL_0_vv_ortho,&pk_fNL_0_vd_ortho,&pk_fNL_0_dd_ortho,&pk_fNL_2_vv_ortho,&pk_fNL_2_vd_ortho,&pk_fNL_2_dd_ortho,&pk_fNL_4_vv_ortho,&pk_fNL_4_vd_ortho,&pk_fNL_4_dd_ortho,&pk12_0_b1b2_ortho,&pk12_0_b2_ortho,&pk12_0_b1bG2_ortho,&pk12_0_bG2_ortho,&pk12_2_b1b2_ortho,&pk12_2_b2_ortho,&pk12_2_b1bG2_ortho,&pk12_2_bG2_ortho,&pk12_4_b1b2_ortho,&pk12_4_b2_ortho,&pk12_4_b1bG2_ortho,&pk12_4_bG2_ortho) ==_FAILURE_:
+          #   raise CosmoSevereError(self.sp.error_message)
+          #GC: ORTHOGONAL -- finish
+          # free(pk_ic)
+          # return pk
+          # result = 0
+          result = [pk-large_for_logs_matter]
+          result.append(-pk_Id2d2+large_for_logs_big)
+          result.append(pk_Id2-large_for_logs_small)
+          result.append(-pk_IG2+large_for_logs_small)
+          result.append(-pk_Id2G2+large_for_logs_big)
+          result.append(pk_IG2G2-large_for_logs_big)
+          result.append(-pk_IFG2+large_for_logs_small)
+          result.append(-pk_IFG2_0b1+large_for_logs_big)
+          result.append(-pk_IFG2_0+large_for_logs_big)
+          result.append(-pk_IFG2_2+large_for_logs_big)
+          result.append(-pk_CTR)
+          result.append(-pk_CTR_0)
+          result.append(-pk_CTR_2)
+          result.append(-pk_CTR_4)
+          result.append(pk_Tree)
+          result.append(pk_Tree_0_vv-large_for_logs_big)
+          result.append(pk_Tree_0_vd-large_for_logs_big)
+          result.append(pk_Tree_0_dd-large_for_logs_big)
+          result.append(pk_Tree_2_vv-large_for_logs_big)
+          result.append(pk_Tree_2_vd-large_for_logs_big)
+          result.append(pk_Tree_4_vv-large_for_logs_big)
+          result.append(pk_0_vv-large_for_logs_big)
+          result.append(pk_0_vd-large_for_logs_big)
+          result.append(pk_0_dd-large_for_logs_big)
+          result.append(pk_2_vv-large_for_logs_big)
+          result.append(pk_2_vd-large_for_logs_big)
+          result.append(pk_2_dd-large_for_logs_big)
+          result.append(pk_4_vv-large_for_logs_big)
+          result.append(pk_4_vd-large_for_logs_big)
+          result.append(pk_4_dd-large_for_logs_big)
+          result.append(pk_0_b1b2-large_for_logs_big)
+          result.append(pk_0_b2-large_for_logs_big)
+          result.append(-pk_0_b1bG2+large_for_logs_big)
+          result.append(-pk_0_bG2+large_for_logs_big)
+          result.append(pk_2_b1b2-large_for_logs_big)
+          result.append(pk_2_b2-large_for_logs_big)
+          result.append(-pk_2_b1bG2+large_for_logs_big)
+          result.append(-pk_2_bG2+large_for_logs_big)
+          result.append(pk_4_b2-large_for_logs_big)
+          result.append(-pk_4_bG2+large_for_logs_big)
+          result.append(pk_4_b1b2-large_for_logs_big)
+          result.append(pk_4_b1bG2-large_for_logs_big)
+          result.append(pk_2_b2b2-large_for_logs_big)
+          result.append(pk_2_b2bG2-large_for_logs_big)
+          result.append(pk_2_bG2bG2-large_for_logs_big)
+          result.append(pk_4_b2b2-large_for_logs_big)
+          result.append(pk_4_b2bG2-large_for_logs_big)
+          result.append(pk_4_bG2bG2-large_for_logs_big)
+          #GC...
+          result.append(factor_fNL*(pk_nl_fNL - large_for_logs_fNL))
+          result.append(factor_fNL*(pk_fNLd2 - large_for_logs_fNL))
+          result.append(factor_fNL*(pk_fNLG2 - large_for_logs_fNL))
+          #GC...
+          result.append(factor_fNL*(pk_fNL_0_vv - large_for_logs_fNL))
+          result.append(factor_fNL*(pk_fNL_0_vd - large_for_logs_fNL))
+          result.append(factor_fNL*(pk_fNL_0_dd - large_for_logs_fNL))
+          result.append(factor_fNL*(pk_fNL_2_vv - large_for_logs_fNL))
+          result.append(factor_fNL*(pk_fNL_2_vd - large_for_logs_fNL))
+          result.append(factor_fNL*(pk_fNL_2_dd - large_for_logs_fNL))
+          result.append(factor_fNL*(pk_fNL_4_vv - large_for_logs_fNL))
+          result.append(factor_fNL*(pk_fNL_4_vd - large_for_logs_fNL))
+          result.append(factor_fNL*(pk_fNL_4_dd - large_for_logs_fNL))
+          #GC...
+          result.append(factor_fNL*(pk12_0_b1b2 - large_for_logs_fNL))
+          result.append(factor_fNL*(pk12_0_b2 - large_for_logs_fNL))
+          result.append(factor_fNL*(pk12_0_b1bG2 - large_for_logs_fNL))
+          result.append(factor_fNL*(pk12_0_bG2 - large_for_logs_fNL))
+          result.append(factor_fNL*(pk12_2_b1b2 - large_for_logs_fNL))
+          result.append(factor_fNL*(pk12_2_b2 - large_for_logs_fNL))
+          result.append(factor_fNL*(pk12_2_b1bG2 - large_for_logs_fNL))
+          result.append(factor_fNL*(pk12_2_bG2 - large_for_logs_fNL))
+          result.append(factor_fNL*(pk12_4_b1b2 - large_for_logs_fNL))
+          result.append(factor_fNL*(pk12_4_b2 - large_for_logs_fNL))
+          result.append(factor_fNL*(pk12_4_b1bG2 - large_for_logs_fNL))
+          result.append(factor_fNL*(pk12_4_bG2 - large_for_logs_fNL))
+          #GC: ORTHOGONAL -- start
+          #GC...
+          result.append(factor_fNL*(pk_nl_fNL_ortho - large_for_logs_fNL))
+          result.append(factor_fNL*(pk_fNLd2_ortho - large_for_logs_fNL))
+          result.append(factor_fNL*(pk_fNLG2_ortho - large_for_logs_fNL))
+          #GC...
+          result.append(factor_fNL*(pk_fNL_0_vv_ortho - large_for_logs_fNL))
+          result.append(factor_fNL*(pk_fNL_0_vd_ortho - large_for_logs_fNL))
+          result.append(factor_fNL*(pk_fNL_0_dd_ortho - large_for_logs_fNL))
+          result.append(factor_fNL*(pk_fNL_2_vv_ortho - large_for_logs_fNL))
+          result.append(factor_fNL*(pk_fNL_2_vd_ortho - large_for_logs_fNL))
+          result.append(factor_fNL*(pk_fNL_2_dd_ortho - large_for_logs_fNL))
+          result.append(factor_fNL*(pk_fNL_4_vv_ortho - large_for_logs_fNL))
+          result.append(factor_fNL*(pk_fNL_4_vd_ortho - large_for_logs_fNL))
+          result.append(factor_fNL*(pk_fNL_4_dd_ortho - large_for_logs_fNL))
+          #GC...
+          result.append(factor_fNL*(pk12_0_b1b2_ortho - large_for_logs_fNL))
+          result.append(factor_fNL*(pk12_0_b2_ortho - large_for_logs_fNL))
+          result.append(factor_fNL*(pk12_0_b1bG2_ortho - large_for_logs_fNL))
+          result.append(factor_fNL*(pk12_0_bG2_ortho - large_for_logs_fNL))
+          result.append(factor_fNL*(pk12_2_b1b2_ortho - large_for_logs_fNL))
+          result.append(factor_fNL*(pk12_2_b2_ortho - large_for_logs_fNL))
+          result.append(factor_fNL*(pk12_2_b1bG2_ortho - large_for_logs_fNL))
+          result.append(factor_fNL*(pk12_2_bG2_ortho - large_for_logs_fNL))
+          result.append(factor_fNL*(pk12_4_b1b2_ortho - large_for_logs_fNL))
+          result.append(factor_fNL*(pk12_4_b2_ortho - large_for_logs_fNL))
+          result.append(factor_fNL*(pk12_4_b1bG2_ortho - large_for_logs_fNL))
+          result.append(factor_fNL*(pk12_4_bG2_ortho - large_for_logs_fNL))
+          return result
+          # return myres
 
     # Gives the cdm+b pk for a given (k,z)
     def pk_cb(self,double k,double z):
@@ -1378,6 +1660,42 @@ cdef class Class:
             raise CosmoSevereError(self.nl.error_message)
 
         return pk_cb_lin
+
+
+    def get_pk_mult(self, np.ndarray[DTYPE_t,ndim=1] k, double z, int k_size, no_wiggle=False, alpha_rs=1.0):
+        """Fast function to get the non-linear power spectrum multipole components on a k array"""
+        #cdef np.ndarray[DTYPE_t, ndim = 2] pk_mult = np.zeros((72,k_size),'float64')
+        #GC: ORTHOGONAL -- start
+        cdef np.ndarray[DTYPE_t, ndim = 2] pk_mult = np.zeros((96,k_size),'float64')
+        #GC: ORTHOGONAL -- finish
+        cdef np.ndarray[DTYPE_t, ndim = 1] this_pk
+        cdef int index_k, index_comb
+
+        for index_k in xrange(k_size):
+            this_pk = np.asarray(self.pk(k[index_k],z, no_wiggle=no_wiggle, alpha_rs=alpha_rs))
+            for index_comb in xrange(96): #GC: ORTHOGONAL...
+                pk_mult[index_comb, index_k] = this_pk[index_comb]
+
+        return pk_mult
+
+    def get_pk_comp(self, np.ndarray[DTYPE_t,ndim=3] k, np.ndarray[DTYPE_t,ndim=1] z, int k_size, int z_size, int mu_size):
+        """Fast function to get the non-linear power spectrum components on a k and z array"""
+        #cdef np.ndarray[DTYPE_t, ndim = 4] pk_mult = np.zeros((72,k_size,z_size,mu_size),'float64')
+        #GC: ORTHOGONAL -- start
+        cdef np.ndarray[DTYPE_t, ndim = 4] pk_mult = np.zeros((96,k_size,z_size,mu_size),'float64')
+        #GC: ORTHOGONAL -- finish
+        cdef np.ndarray[DTYPE_t, ndim = 1] this_pk
+        cdef int index_k, index_z, index_mu, index_comb
+
+        for index_k in xrange(k_size):
+            for index_z in xrange(z_size):
+                for index_mu in xrange(mu_size):
+                    this_pk = np.asarray(self.pk(k[index_k,index_z,index_mu],z[index_z]))
+                    for index_comb in xrange(96): #GC: ORTHOGONAL...
+                        pk_mult[index_comb, index_k, index_z, index_mu] = this_pk[index_comb]
+
+        return pk_mult
+
 
     def get_pk(self, np.ndarray[DTYPE_t,ndim=3] k, np.ndarray[DTYPE_t,ndim=1] z, int k_size, int z_size, int mu_size):
         """ Fast function to get the power spectrum on a k and z array """
@@ -1713,6 +2031,243 @@ cdef class Class:
 
     def get_fstar_of_m_at_z(self,m,z):
         return get_fstar_of_m_at_z(m,z,&self.tsz)
+
+    # New user interface functions
+    def initialize_output(self, np.ndarray[DTYPE_t,ndim=1] k, double z, int k_size):
+        """Compute and store the various non-linear power spectrum terms that will be called in the user interface routines below."""
+        self.kh = k
+        self.fz = self.scale_independent_growth_factor_f(z)
+        self.pk_mult = self.get_pk_mult(k, z, k_size)
+        self.output_init = True
+
+    def pk_mm_real(self, cs):
+        """Return real-space matter-matter power spectrum with non-linear corrections. NB: this outputs in (h/Mpc)^3 units"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        return (self.pk_mult[0]+self.pk_mult[14]+2*cs*self.pk_mult[10]/h**2.)*h**3.
+
+    def pk_gg_real(self, b1, b2, bG2, bGamma3, cs, cs0, Pshot):
+        """Return real-space galaxy-galaxy power spectrum with non-linear corrections. NB: this outputs in (h/Mpc)^3 units"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        return (b1**2.*self.pk_mult[14] + b1**2.*self.pk_mult[0] + 2.*(cs*b1**2.+cs0*b1)*self.pk_mult[10]/h**2. + b1*b2*self.pk_mult[2]+ 0.25*b2**2.*self.pk_mult[1] + 2.*b1*bG2*self.pk_mult[3] + b1*(2.*bG2 + 0.8*bGamma3)*self.pk_mult[6] + bG2**2.*self.pk_mult[5] + b2*bG2*self.pk_mult[4])*h**3. + Pshot
+
+    def pk_gm_real(self, b1, b2, bG2, bGamma3, cs, cs0):
+        """Return real-space galaxy-matter power spectrum with non-linear corrections. NB: this outputs in (h/Mpc)^3 units"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        return (b1*self.pk_mult[14] + b1*self.pk_mult[0] + (2.*cs*b1+cs0)*self.pk_mult[10]/h**2. +(b2/2)*self.pk_mult[2] + bG2*self.pk_mult[3] + (bG2 + 0.4*bGamma3)*self.pk_mult[6])*h**3.
+
+#GC -> start...
+
+    def pk_mm_fNL_real(self):
+        """Return real-space matter-matter power spectrum fNL contribution. NB: output is in (h/Mpc)^3 units, and one still needs to multiply by fNL"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        return self.pk_mult[48]*h**3.
+
+
+    #GC: ORTHOGONAL -- start
+    def pk_mm_fNL_real_ortho(self):
+        """Return real-space matter-matter power spectrum fNL orthogonal contribution. NB: output is in (h/Mpc)^3 units, and one still needs to multiply by fNL"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        return self.pk_mult[48+24]*h**3.
+    #GC: ORTHOGONAL -- finish
+
+
+    def pk_gm_fNL_real(self, b1, b2, bG2):
+        """Return real-space galaxy-matter power spectrum fNL contribution. NB: output is in (h/Mpc)^3 units, and one still needs to multiply by fNL"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        return b1*self.pk_mult[48]*h**3. + ((b2/2.)*self.pk_mult[49]+bG2*self.pk_mult[50])*h**3.
+
+
+    #GC: ORTHOGONAL -- start
+    def pk_gm_fNL_real_ortho(self, b1, b2, bG2):
+        """Return real-space galaxy-matter power spectrum fNL orthogonal contribution. NB: output is in (h/Mpc)^3 units, and one still needs to multiply by fNL"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        return b1*self.pk_mult[48+24]*h**3. + ((b2/2.)*self.pk_mult[49+24]+bG2*self.pk_mult[50+24])*h**3.
+    #GC: ORTHOGONAL -- finish
+
+
+    def pk_gg_fNL_real(self, b1, b2, bG2):
+        """Return real-space galaxy-galaxy power spectrum fNL contribution. NB: output is in (h/Mpc)^3 units, and one still needs to multiply by fNL"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        return b1**2.*self.pk_mult[48]*h**3. + b1*((b2/2.)*self.pk_mult[49]+bG2*self.pk_mult[50])*h**3.
+
+
+    #GC: ORTHOGONAL -- start
+    def pk_gg_fNL_real_ortho(self, b1, b2, bG2):
+        """Return real-space galaxy-galaxy power spectrum fNL orthogonal contribution. NB: output is in (h/Mpc)^3 units, and one still needs to multiply by fNL"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        return b1**2.*self.pk_mult[48+24]*h**3. + b1*((b2/2.)*self.pk_mult[49+24]+bG2*self.pk_mult[50+24])*h**3.
+    #GC: ORTHOGONAL -- finish
+
+
+#GC -> end...
+
+    def pk_mm_l0(self, cs0):
+        """Return redshift-space matter-matter power spectrum monopole with non-linear corrections. NB: this outputs in (h/Mpc)^3 units"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        return (self.pk_mult[15] + self.pk_mult[21] + self.pk_mult[16] + self.pk_mult[22] + self.pk_mult[17] + self.pk_mult[23] + 2.*cs0*self.pk_mult[11]/h**2.)*h**3.
+
+    def pk_mm_l2(self, cs2):
+        """Return redshift-space matter-matter power spectrum quadrupole with non-linear corrections. NB: this outputs in (h/Mpc)^3 units"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        return (self.pk_mult[18] +self.pk_mult[24]+self.pk_mult[19] +self.pk_mult[25] +self.pk_mult[26]  +2.*cs2*self.pk_mult[12]/h**2.)*h**3.
+
+    def pk_mm_l4(self, cs4):
+        """Return redshift-space matter-matter power spectrum hexadecapole with non-linear corrections. NB: this outputs in (h/Mpc)^3 units"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        return (self.pk_mult[20] +self.pk_mult[27]+self.pk_mult[28] +self.pk_mult[29] +2.*cs4*self.pk_mult[13]/h**2.)*h**3.
+
+    def pk_gg_l0(self, b1, b2, bG2, bGamma3, cs0, Pshot, b4):
+        """Return redshift-space galaxy-galaxy power spectrum monopole with non-linear corrections. NB: this outputs in (h/Mpc)^3 units"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        return (self.pk_mult[15] +self.pk_mult[21]+ b1*self.pk_mult[16] + b1*self.pk_mult[22] + b1**2.*self.pk_mult[17] + b1**2.*self.pk_mult[23] + 0.25*b2**2.*self.pk_mult[1] + b1*b2*self.pk_mult[30]+ b2*self.pk_mult[31] + b1*bG2*self.pk_mult[32] + bG2*self.pk_mult[33]+ b2*bG2*self.pk_mult[4]+ bG2**2.*self.pk_mult[5] + 2.*cs0*self.pk_mult[11]/h**2.
+                  + (2.*bG2+0.8*bGamma3)*(b1*self.pk_mult[7]+self.pk_mult[8]))*h**3.+ Pshot + self.fz**2.*b4*(self.kh/h)**2.*(self.fz**2./9. + 2.*self.fz*b1/7. + b1**2./5)*(35./8.)*self.pk_mult[13]*h
+
+    def pk_gg_l2(self, b1, b2, bG2, bGamma3, cs2, b4):
+        """Return redshift-space galaxy-galaxy power spectrum quadrupole with non-linear corrections. NB: this outputs in (h/Mpc)^3 units"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        return (self.pk_mult[18] +self.pk_mult[24]+b1*self.pk_mult[19] +b1*self.pk_mult[25] +b1**2.*self.pk_mult[26] +b1*b2*self.pk_mult[34]+b2*self.pk_mult[35] +b1*bG2*self.pk_mult[36]+bG2*self.pk_mult[37]+2.*cs2*self.pk_mult[12]/h**2. +(2.*bG2+0.8*bGamma3)*self.pk_mult[9])*h**3. +self.fz**2.*b4*(self.kh/h)**2.*((self.fz**2.*70. + 165.*self.fz*b1+99.*b1**2.)*4./693.)*(35./8.)*self.pk_mult[13]*h
+
+    def pk_gg_l4(self, b1, b2, bG2, bGamma3, cs4, b4):
+        """Return redshift-space galaxy-galaxy power spectrum quadrupole with non-linear corrections. NB: this outputs in (h/Mpc)^3 units"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        return (self.pk_mult[20] +self.pk_mult[27]+b1*self.pk_mult[28] +b1**2.*self.pk_mult[29] +b2*self.pk_mult[38] +bG2*self.pk_mult[39] +2.*cs4*self.pk_mult[13]/h**2.)*h**3.+self.fz**2.*b4*(self.kh/h)**2.*((self.fz**2.*210. + 390.*self.fz*b1+143.*b1**2.)*8./5005.)*(35./8.)*self.pk_mult[13]*h
+
+    #GC: I can add something here... E.g. only the pieces from primordial non-Gaussianity, for mm and gg. For mm just take b1=1: this is exactly what Misha does...
+
+    def pk_mm_fNL_l0(self):
+        """Return matter-matter power spectrum monopole fNL contribution. NB: output is in (h/Mpc)^3 units, and one still needs to multiply by fNL"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        #return (self.pk_mult[51] + self.pk_mult[52] + self.pk_mult[53])*h**3.
+        return (self.pk_mult[51])*h**3.
+
+    def pk_mm_fNL_l2(self):
+        """Return matter-matter power spectrum quadrupole fNL contribution. NB: output is in (h/Mpc)^3 units, and one still needs to multiply by fNL"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        #return (self.pk_mult[54] + self.pk_mult[55] + self.pk_mult[56])*h**3.
+        return (self.pk_mult[54])*h**3.
+
+    def pk_mm_fNL_l4(self):
+        """Return matter-matter power spectrum hexadecapole fNL contribution. NB: output is in (h/Mpc)^3 units, and one still needs to multiply by fNL"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        #return (self.pk_mult[57] + self.pk_mult[58] + self.pk_mult[59])*h**3.
+        return (self.pk_mult[57])*h**3.
+
+    def pk_gg_fNL_l0(self, b1, b2, bG2):
+        """Return galaxy-galaxy power spectrum monopole fNL contribution. NB: output is in (h/Mpc)^3 units, and one still needs to multiply by fNL"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        return (self.pk_mult[51] + b1*self.pk_mult[52] + b1**2.*self.pk_mult[53] + b1*(b2/2.)*self.pk_mult[60] + (b2/2.)*self.pk_mult[61] + b1*bG2*self.pk_mult[62] + bG2*self.pk_mult[63])*h**3.
+
+
+    def pk_gg_fNL_l2(self, b1, b2, bG2):
+        """Return galaxy-galaxy power spectrum quadrupole fNL contribution. NB: output is in (h/Mpc)^3 units, and one still needs to multiply by fNL"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        return (self.pk_mult[54] + b1*self.pk_mult[55] + b1**2.*self.pk_mult[56] + b1*(b2/2.)*self.pk_mult[64] + (b2/2.)*self.pk_mult[65] + b1*bG2*self.pk_mult[66] + bG2*self.pk_mult[67])*h**3.
+
+
+    def pk_gg_fNL_l4(self, b1, b2, bG2):
+        """Return galaxy-galaxy power spectrum hexadecapole fNL contribution. NB: output is in (h/Mpc)^3 units, and one still needs to multiply by fNL"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        return (self.pk_mult[57] + b1*self.pk_mult[58] + b1**2.*self.pk_mult[59] + b1*(b2/2.)*self.pk_mult[68] + (b2/2.)*self.pk_mult[69] + b1*bG2*self.pk_mult[70] + bG2*self.pk_mult[71])*h**3.
+
+
+
+    #GC: ORTHOGONAL -- start
+
+
+
+    def pk_mm_fNL_l0_ortho(self):
+        """Return matter-matter power spectrum monopole fNL orthogonal contribution. NB: output is in (h/Mpc)^3 units, and one still needs to multiply by fNL"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        #return (self.pk_mult[51] + self.pk_mult[52] + self.pk_mult[53])*h**3.
+        return (self.pk_mult[51+24])*h**3.
+
+    def pk_mm_fNL_l2_ortho(self):
+        """Return matter-matter power spectrum quadrupole fNL orthogonal contribution. NB: output is in (h/Mpc)^3 units, and one still needs to multiply by fNL"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        #return (self.pk_mult[54] + self.pk_mult[55] + self.pk_mult[56])*h**3.
+        return (self.pk_mult[54+24])*h**3.
+
+    def pk_mm_fNL_l4_ortho(self):
+        """Return matter-matter power spectrum hexadecapole fNL orthogonal contribution. NB: output is in (h/Mpc)^3 units, and one still needs to multiply by fNL"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        #return (self.pk_mult[57] + self.pk_mult[58] + self.pk_mult[59])*h**3.
+        return (self.pk_mult[57+24])*h**3.
+
+    def pk_gg_fNL_l0_ortho(self, b1, b2, bG2):
+        """Return galaxy-galaxy power spectrum monopole fNL orthogonal contribution. NB: output is in (h/Mpc)^3 units, and one still needs to multiply by fNL"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        return (self.pk_mult[51+24] + b1*self.pk_mult[52+24] + b1**2.*self.pk_mult[53+24] + b1*(b2/2.)*self.pk_mult[60+24] + (b2/2.)*self.pk_mult[61+24] + b1*bG2*self.pk_mult[62+24] + bG2*self.pk_mult[63+24])*h**3.
+
+
+    def pk_gg_fNL_l2_ortho(self, b1, b2, bG2):
+        """Return galaxy-galaxy power spectrum quadrupole fNL orthogonal contribution. NB: output is in (h/Mpc)^3 units, and one still needs to multiply by fNL"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        return (self.pk_mult[54+24] + b1*self.pk_mult[55+24] + b1**2.*self.pk_mult[56+24] + b1*(b2/2.)*self.pk_mult[64+24] + (b2/2.)*self.pk_mult[65+24] + b1*bG2*self.pk_mult[66+24] + bG2*self.pk_mult[67+24])*h**3.
+
+
+    def pk_gg_fNL_l4_ortho(self, b1, b2, bG2):
+        """Return galaxy-galaxy power spectrum hexadecapole fNL orthogonal contribution. NB: output is in (h/Mpc)^3 units, and one still needs to multiply by fNL"""
+        h = self.ba.h
+        if not self.output_init:
+            raise Exception("Must run initialize_output() before calling this function")
+        return (self.pk_mult[57+24] + b1*self.pk_mult[58+24] + b1**2.*self.pk_mult[59+24] + b1*(b2/2.)*self.pk_mult[68+24] + (b2/2.)*self.pk_mult[69+24] + b1*bG2*self.pk_mult[70+24] + bG2*self.pk_mult[71+24])*h**3.
+
+
+
+#GC: ORTHOGONAL -- finish
+
 
 
 

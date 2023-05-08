@@ -186,6 +186,11 @@ int main(int argc, char **argv) {
     return _FAILURE_;
   }
 
+  if (nonlinear_pt_free(&nlpt) == _FAILURE_) {
+        printf("\n\nError in nonlinear_pt_free \n=>%s\n",nlpt.error_message);
+        return _FAILURE_;
+    }
+
   if (primordial_free(&pm) == _FAILURE_) {
     printf("\n\nError in primordial_free \n=>%s\n",pm.error_message);
     return _FAILURE_;

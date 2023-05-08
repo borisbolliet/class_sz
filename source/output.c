@@ -159,7 +159,7 @@ int output_init(
 
       if (pnlpt->method != nlpt_none) {
 
-          class_call(output_pk_nl_pt(pba,ppt,pnlpt,psp,pop),
+          class_call(output_pk_nl_pt(pba,ppt,ppm,pnl,pnlpt,psp,pop),
                      pop->error_message,
                      pop->error_message);
       }
@@ -891,6 +891,8 @@ int output_pk(
 int output_pk_nl_pt(
                  struct background * pba,
                  struct perturbs * ppt,
+                 struct primordial * ppm,
+                 struct nonlinear * pnl,
                  struct nonlinear_pt * pnlpt,
                  struct spectra * psp,
                  struct output * pop
@@ -1504,10 +1506,126 @@ int output_pk_nl_pt(
 
 
         //GC: ORTHOGONAL -- finish
-
-
-
-
+//
+// printf("testing spectra_pk_nl_at_k_and_z\n");
+// double ztest = 0.61;
+// double ktest = 0.3;
+// spectra_pk_nl_at_k_and_z(
+//                              pba,
+//                              ppm,
+//                              psp,
+//                              pnl,
+//                              pnlpt,
+//                              ktest,
+//                              ztest,
+//                              pk_tot, /* pointer to a single number (must be already allocated) */
+//                              //GC -> the first counts as well... The issue now is that I do not understand if I really only need to modify this function... The key is the function spectra_pk_nl_at_z -> it calls the spectra that... No, I need also spectra_pk_nl_bias_at_z_i since this is used below...
+//                              pk_tot_Id2d2, //1
+//                              pk_tot_Id2, //2
+//                              pk_tot_IG2, //3
+//                              pk_tot_Id2G2, //4
+//                              pk_tot_IG2G2, //5
+//                              pk_tot_IFG2, //6
+//                              pk_tot_IFG2_0b1, //7
+//                              pk_tot_IFG2_0, //8
+//                              pk_tot_IFG2_2, //9
+//                              pk_tot_CTR, //10
+//                              pk_tot_CTR_0, //11
+//                              pk_tot_CTR_2, //12
+//                              pk_tot_CTR_4, //13
+//                              pk_tot_Tree, //14
+//                              pk_tot_Tree_0_vv, //15
+//                              pk_tot_Tree_0_vd, //16
+//                              pk_tot_Tree_0_dd, //17
+//                              pk_tot_Tree_2_vv, //18
+//                              pk_tot_Tree_2_vd, //19
+//                              pk_tot_Tree_4_vv, //20
+//                              pk_tot_0_vv, //21
+//                              pk_tot_0_vd, //22
+//                              pk_tot_0_dd, //23
+//                              pk_tot_2_vv, //24
+//                              pk_tot_2_vd, //25
+//                              pk_tot_2_dd, //26
+//                              pk_tot_4_vv, //27
+//                              pk_tot_4_vd, //28
+//                              pk_tot_4_dd, //29
+//                              pk_tot_0_b1b2, //30
+//                              pk_tot_0_b2, //31
+//                              pk_tot_0_b1bG2, //32
+//                              pk_tot_0_bG2, //33
+//                              pk_tot_2_b1b2, //34
+//                              pk_tot_2_b2, //35
+//                              pk_tot_2_b1bG2, //36
+//                              pk_tot_2_bG2, //37
+//                              pk_tot_4_b2, //38
+//                              pk_tot_4_bG2, //39
+//                              pk_tot_4_b1b2, //40
+//                              pk_tot_4_b1bG2, //41
+//                              pk_tot_2_b2b2, //42
+//                              pk_tot_2_b2bG2, //43
+//                              pk_tot_2_bG2bG2, //44
+//                              pk_tot_4_b2b2, //45
+//                              pk_tot_4_b2bG2, //46
+//                              pk_tot_4_bG2bG2, //47
+//                              //GC!
+//                              pk_tot_fNL,
+//                              pk_tot_fNLd2,
+//                              pk_tot_fNLG2,
+//                              //GC!!!
+//                              pk_tot_fNL_0_vv,
+//                              pk_tot_fNL_0_vd,
+//                              pk_tot_fNL_0_dd,
+//                              pk_tot_fNL_2_vv,
+//                              pk_tot_fNL_2_vd,
+//                              pk_tot_fNL_2_dd,
+//                              pk_tot_fNL_4_vv,
+//                              pk_tot_fNL_4_vd,
+//                              pk_tot_fNL_4_dd,
+//                              //GC!
+//                              pk_tot_fNL_0_b1b2,
+//                              pk_tot_fNL_0_b2,
+//                              pk_tot_fNL_0_b1bG2,
+//                              pk_tot_fNL_0_bG2,
+//                              pk_tot_fNL_2_b1b2,
+//                              pk_tot_fNL_2_b2,
+//                              pk_tot_fNL_2_b1bG2,
+//                              pk_tot_fNL_2_bG2,
+//                              pk_tot_fNL_4_b1b2,
+//                              pk_tot_fNL_4_b2,
+//                              pk_tot_fNL_4_b1bG2,
+//                              pk_tot_fNL_4_bG2, //GC: ORTHOGONAL...
+//                                 //GC: ORTHOGONAL -- start
+//                              pk_tot_fNL_ortho,
+//                              pk_tot_fNLd2_ortho,
+//                              pk_tot_fNLG2_ortho,
+//                              //GC!!!
+//                              pk_tot_fNL_0_vv_ortho,
+//                              pk_tot_fNL_0_vd_ortho,
+//                              pk_tot_fNL_0_dd_ortho,
+//                              pk_tot_fNL_2_vv_ortho,
+//                              pk_tot_fNL_2_vd_ortho,
+//                              pk_tot_fNL_2_dd_ortho,
+//                              pk_tot_fNL_4_vv_ortho,
+//                              pk_tot_fNL_4_vd_ortho,
+//                              pk_tot_fNL_4_dd_ortho,
+//                              //GC!
+//                              pk_tot_fNL_0_b1b2_ortho,
+//                              pk_tot_fNL_0_b2_ortho,
+//                              pk_tot_fNL_0_b1bG2_ortho,
+//                              pk_tot_fNL_0_bG2_ortho,
+//                              pk_tot_fNL_2_b1b2_ortho,
+//                              pk_tot_fNL_2_b2_ortho,
+//                              pk_tot_fNL_2_b1bG2_ortho,
+//                              pk_tot_fNL_2_bG2_ortho,
+//                              pk_tot_fNL_4_b1b2_ortho,
+//                              pk_tot_fNL_4_b2_ortho,
+//                              pk_tot_fNL_4_b1bG2_ortho,
+//                              pk_tot_fNL_4_bG2_ortho
+//                                 //GC: ORTHOGONAL -- finish
+//                              );
+//
+//   printf("testing done for spectra_pk_nl_at_k_and_z\n");
+// exit(0);
 
         /** - third, compute P(k) for each k (if several ic's, compute it for each ic and compute also the total); all computations are made at the required value of tau. */
 

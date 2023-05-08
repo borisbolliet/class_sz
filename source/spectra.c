@@ -274,7 +274,10 @@ int spectra_init(
 
   /** - check that we really want to compute at least one spectrum */
 
-  if (ppt->has_cls == _FALSE_) {
+  if ((ppt->has_cls == _FALSE_) &&
+      (ppt->has_pk_matter == _FALSE_) &&
+      (ppt->has_density_transfers == _FALSE_) &&
+      (ppt->has_velocity_transfers == _FALSE_)) {
     psp->md_size = 0;
     if (psp->spectra_verbose > 0)
       printf("No spectra requested. Spectra module skipped.\n");
@@ -282,7 +285,7 @@ int spectra_init(
   }
   else {
     if (psp->spectra_verbose > 0)
-      printf("Computing unlensed harmonic spectra\n");
+      printf("Computing unlensed linear spectra\n");
   }
 
   /** - initialize indices and allocate some of the arrays in the
@@ -1564,7 +1567,7 @@ int spectra_pk_nl_at_z(
 // }
 
 
-int spectra_pk_nl_at_k_and_z(
+double spectra_pk_nl_at_k_and_z(
                              struct background * pba,
                              struct primordial * ppm,
                              struct spectra * psp,
@@ -1681,7 +1684,7 @@ int spectra_pk_nl_at_k_and_z(
   /** Summary: */
 
   /** - define local variables */
-
+// return 1;
 
   int index_md;
   int last_index;
@@ -2003,17 +2006,17 @@ int spectra_pk_nl_at_k_and_z(
 
 
 
-
+// return 1;
 
   index_md = psp->index_md_scalars;
 
   /** - check that k is in valid range [0:kmax] (the test for z will be done when calling spectra_pk_at_z()) */
-
-  //printf("k=%e\n",k);
+// return 1;
+  // printf("k= %.3e %.3e %.3e\n",k,exp(pnlpt->ln_k[0]),exp(pnlpt->ln_k[pnlpt->ln_k_size-1]));
   class_test((k < exp(pnlpt->ln_k[0])) || (k > exp(pnlpt->ln_k[pnlpt->ln_k_size-1])),
              psp->error_message,
              "k=%e out of bounds [%e:%e]",k,0.,exp(pnlpt->ln_k[pnlpt->ln_k_size-1]));
-
+// return exp(pnlpt->ln_k[0]);
   /** - compute P(k,z) (in logarithmic format for more accurate interpolation) */
   class_alloc(spectrum_at_z,
               pnlpt->ln_k_size*sizeof(double),
@@ -2429,17 +2432,17 @@ int spectra_pk_nl_at_k_and_z(
                                  //GC: ORTHOGONAL -- finish
 
 
+// return 1;
 
-
-    if (pnlpt->method == nlpt_none && pnl->method != nl_none){
-    class_call(spectra_pk_nl_at_z(pba,
-                                psp,
-                                logarithmic,
-                                z,
-                                spectrum_at_z),
-             psp->error_message,
-             psp->error_message);
-    }
+    // if (pnlpt->method == nlpt_none && pnl->method != nl_none){
+    // class_call(spectra_pk_nl_at_z(pba,
+    //                             psp,
+    //                             logarithmic,
+    //                             z,
+    //                             spectrum_at_z),
+    //          psp->error_message,
+    //          psp->error_message);
+    // }
 
 /*Correspondance between requested redshift z and number of value in z_pk input*/
 int i_z;
@@ -2451,7 +2454,9 @@ for (i_z=0; i_z<pnlpt->z_pk_num; i_z++) {
 }
 /*printf("i_z=%d\n",i_z);*/
 
-    if(pnlpt->method != nlpt_none && pnl->method == nl_none){
+// return 1.2;
+    // if(pnlpt->method != nlpt_none && pnl->method == nl_none){
+    // if(pnlpt->method != nlpt_none){
        class_call(spectra_pk_nl_bias_at_z_i(pba,
                                   pnlpt,
                                   psp,
@@ -2564,13 +2569,17 @@ for (i_z=0; i_z<pnlpt->z_pk_num; i_z++) {
                psp->error_message,
                psp->error_message);
 
-    }
-
+// return 1.7;
+    // }
+// return 1;
 
   /** - get its second derivatives with spline, then interpolate, then convert to linear format */
 
+  // class_alloc(spline,
+  //             sizeof(double)*psp->ic_ic_size[index_md]*pnlpt->ln_k_size,
+  //             psp->error_message);
   class_alloc(spline,
-              sizeof(double)*psp->ic_ic_size[index_md]*pnlpt->ln_k_size,
+              sizeof(double)*pnlpt->ln_k_size,
               psp->error_message);
 
     class_alloc(spline_Id2d2,
@@ -3017,10 +3026,11 @@ for (i_z=0; i_z<pnlpt->z_pk_num; i_z++) {
 
 
 
+// return 1.9;
 
-
-
-
+// return _SPLINE_NATURAL_*pnlpt->ln_k[0]*pnlpt->ln_k_size*spectrum_at_z[pnlpt->ln_k_size-1];
+// printf("about to spline: %d %.5e %.5e\n",pnlpt->ln_k_size,pnlpt->ln_k[0],pnlpt->ln_k[pnlpt->ln_k_size-1]);
+// return 0;
   class_call(array_spline_table_lines(pnlpt->ln_k,
                                       pnlpt->ln_k_size,
                                       spectrum_at_z,
@@ -3030,6 +3040,7 @@ for (i_z=0; i_z<pnlpt->z_pk_num; i_z++) {
                                       psp->error_message),
              psp->error_message,
              psp->error_message);
+
 
   class_call(array_interpolate_spline(pnlpt->ln_k,
                                       pnlpt->ln_k_size,
@@ -3044,8 +3055,9 @@ for (i_z=0; i_z<pnlpt->z_pk_num; i_z++) {
              psp->error_message,
              psp->error_message);
 
-  *pk_tot = exp(*pk_tot);
 
+  *pk_tot = exp(*pk_tot);
+// printf("spectrum_at_z %.5e %.5e\n",log(k),*pk_tot);
 
 
 
@@ -3053,7 +3065,16 @@ for (i_z=0; i_z<pnlpt->z_pk_num; i_z++) {
       free(spline);
 
     // Id2d2
+           //   printf("done till here\n");
+           //
+           //   printf("about to spline: %d %.5e %.5e %.10e %.10e\n",pnlpt->ln_k_size,
+           //   pnlpt->ln_k[0],
+           //   pnlpt->ln_k[pnlpt->ln_k_size-1],
+           //   spectrum_Id2d2_at_z[300],
+           //   spectrum_Id2d2_at_z[pnlpt->ln_k_size-1]
+           // );
 
+             // return 1 ;
     class_call(array_spline_table_lines(pnlpt->ln_k,
                                         pnlpt->ln_k_size,
                                         spectrum_Id2d2_at_z,
@@ -3063,6 +3084,9 @@ for (i_z=0; i_z<pnlpt->z_pk_num; i_z++) {
                                         psp->error_message),
                psp->error_message,
                psp->error_message);
+
+// return 1 ;
+// printf("done till here a\n");
 
     class_call(array_interpolate_spline(pnlpt->ln_k,
                                         pnlpt->ln_k_size,
@@ -3076,7 +3100,7 @@ for (i_z=0; i_z<pnlpt->z_pk_num; i_z++) {
                                         psp->error_message),
                psp->error_message,
                psp->error_message);
-
+// printf("done till here b\n");
 
     *pk_tot_Id2d2 = exp(*pk_tot_Id2d2);
 
@@ -3108,7 +3132,8 @@ for (i_z=0; i_z<pnlpt->z_pk_num; i_z++) {
                psp->error_message,
                psp->error_message);
 
-
+// printf("done till here c\n");
+// return 1;
     *pk_tot_Id2 = exp(*pk_tot_Id2);
 
     free(spectrum_Id2_at_z);
@@ -5714,7 +5739,7 @@ for (i_z=0; i_z<pnlpt->z_pk_num; i_z++) {
 
 
 
-  return _SUCCESS_;
+  return 1.;//_SUCCESS_;
 
 }
 

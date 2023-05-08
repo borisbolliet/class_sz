@@ -762,7 +762,7 @@ extern "C" {
   //                              double * pk_cb_tot
   //                              );
 
-int spectra_pk_nl_at_k_and_z(
+double spectra_pk_nl_at_k_and_z(
                                struct background * pba,
                                struct primordial * ppm,
                                struct spectra * psp,
