@@ -638,6 +638,7 @@ int perturb_init(
 
   /** - initialize all indices and lists in perturbs structure using perturb_indices() */
 
+  printf("running parturbs indices.\n");
   class_call(perturb_indices(ppr,
                              pba,
                              pth,
@@ -679,6 +680,11 @@ int perturb_init(
   class_call(perturb_prepare_k_output(pba,ppt),
              ppt->error_message,
              ppt->error_message);
+
+
+if (ppt->use_class_sz_fast_mode){
+  return _SUCCESS_;
+}
 
   /** - create an array of workspaces in multi-thread case */
 

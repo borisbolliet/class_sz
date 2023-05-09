@@ -128,6 +128,7 @@ cdef extern from "class.h":
         int tt_size
 
     cdef struct perturbs:
+        int use_class_sz_fast_mode
         ErrorMsg error_message
         short has_scalars
         short has_vectors
@@ -170,6 +171,7 @@ cdef extern from "class.h":
         ErrorMsg error_message
 
     cdef struct primordial:
+        int use_class_sz_fast_mode
         ErrorMsg error_message
         double k_pivot
         double A_s
@@ -201,6 +203,7 @@ cdef extern from "class.h":
         int lnk_size
 
     cdef struct spectra:
+        int use_class_sz_fast_mode
         ErrorMsg error_message
         int has_tt
         int has_te
@@ -516,6 +519,7 @@ cdef extern from "class.h":
         ErrorMsg error_message
 
     cdef struct nonlinear:
+        int use_class_sz_fast_mode
         short has_pk_matter
         int method
         int ic_size
@@ -539,6 +543,7 @@ cdef extern from "class.h":
         ErrorMsg error_message
 
     cdef struct nonlinear_pt:
+        int use_class_sz_fast_mode
         int method
         int no_wiggle
         int wiggle_only
@@ -575,7 +580,7 @@ cdef extern from "class.h":
     int perturb_init(void*,void*,void*,void*)
     int primordial_init(void*,void*,void*)
     int nonlinear_init(void*,void*,void*,void*,void*,void*)
-    int nonlinear_pt_init(void*,void*,void*,void*,void*,void*)
+    int nonlinear_pt_init(void*,void*,void*,void*,void*,void*,void*,void*)
     int transfer_init(void*,void*,void*,void*,void*,void*)
     int spectra_init(void*,void*,void*,void*,void*,void*,void*,void*)
     int lensing_init(void*,void*,void*,void*,void*)

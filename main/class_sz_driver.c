@@ -80,7 +80,8 @@ int main(int argc, char **argv) {
   duration = ((double)end - start)/CLOCKS_PER_SEC;
   // printf("Time taken to execute nonlionear in seconds : %.3e\n", duration);
 
-  if (nonlinear_pt_init(&pr,&ba,&th,&pt,&pm,&nlpt) == _FAILURE_) {
+  
+  if (nonlinear_pt_init(&pr,&ba,&th,&pt,&pm,&nlpt,&nl,&tsz) == _FAILURE_) {
         printf("\n\nError in nonlinear_pt_init \n=>%s\n",nlpt.error_message);
         return _FAILURE_;
     }

@@ -504,7 +504,7 @@ cdef class Class:
 
         if "nonlinear_pt" in level:
             if nonlinear_pt_init(&self.pr, &self.ba, &self.th,
-                              &self.pt, &self.pm, &self.nlpt) == _FAILURE_:
+                              &self.pt, &self.pm, &self.nlpt, &self.nl, &(self.tsz)) == _FAILURE_:
                 self.struct_cleanup()
                 raise CosmoComputationError(self.nlpt.error_message)
             self.ncp.add("nonlinear_pt")
@@ -649,18 +649,14 @@ cdef class Class:
 
         #if self.pt.has_pk_matter and self.tsz.skip_pk == 0:
         if self.tsz.skip_pkl == 0:
-          # print('calculating pkl')
+          print('calculating pkl')
           start = time.time()
           cszfast.calculate_pkl(**params_settings)
           end = time.time()
-          # print('pk calculation took:',end-start)
-          #index_z_r = 0
-          #for index_z in range(self.tsz.n_arraySZ):
-          #  for index_r in range(self.tsz.ndimSZ):
-          #        self.tsz.array_redshift[index_z] = cszfast.cszfast_pk_grid_ln1pz[index_z]
-          #        self.tsz.array_pkl_at_z_and_k[index_z_r] = cszfast.cszfast_pk_grid_pk_flat[index_z_r]
-          #        self.tsz.array_lnk[index_r] = cszfast.cszfast_pk_grid_lnk[index_r]
-          #        index_z_r += 1
+          print('pk calculation took:',end-start)
+
+
+
 
         if self.tsz.skip_pknl == 0:
           # print('calculating pknl')
@@ -704,18 +700,93 @@ cdef class Class:
           if self.tsz.skip_chi == 0:
             cszfast.calculate_chi(**params_settings)
           if self.tsz.skip_hubble == 0:
+            start = time.time()
             cszfast.calculate_hubble(**params_settings)
+            end = time.time()
+            print('hubble calculation took:',end-start)
           self.tsz.use_class_sz_fast_mode = 1
           self.class_szfast = cszfast
           self.computed = True
           return
         else:
+          start = time.time()
           self.compute(level=["thermodynamics"])
-          self.tsz.use_class_sz_fast_mode = 1
+          end = time.time()
+          print('up to thermo calculation took:',end-start)
+          if (self.nlpt.method == 0):
+            self.tsz.use_class_sz_fast_mode = 1
+          else:
+            self.tsz.use_class_sz_fast_mode = 1
+            self.pt.use_class_sz_fast_mode = 1
+            self.pm.use_class_sz_fast_mode = 1
+            self.sp.use_class_sz_fast_mode = 1
+            self.nlpt.use_class_sz_fast_mode = 1
+            self.nl.use_class_sz_fast_mode = 1
+          print('initilaizing class_szfast arrays')
+          start = time.time()
           if class_sz_cosmo_init(&(self.ba), &(self.th), &(self.pt), &(self.nl), &(self.pm),
           &(self.sp),&(self.le),&(self.tsz),&(self.pr)) == _FAILURE_:
               self.struct_cleanup()
               raise CosmoComputationError(self.tsz.error_message)
+          end = time.time()
+          print('class_sz cosmoinit took:',end-start)
+
+
+          if (self.nlpt.method != 0):
+            print('initilaizing perturbs')
+            start = time.time()
+            if perturb_init(&(self.pr), &(self.ba),
+                            &(self.th), &(self.pt)) == _FAILURE_:
+                self.struct_cleanup()
+                raise CosmoComputationError(self.pt.error_message)
+            end = time.time()
+            print('perturbs init took:',end-start)
+            print('initilaizing primordial')
+            start = time.time()
+            if primordial_init(&(self.pr), &(self.pt),
+                               &(self.pm)) == _FAILURE_:
+                self.struct_cleanup()
+                raise CosmoComputationError(self.pm.error_message)
+            end = time.time()
+            print('primordial took:',end-start)
+            print('computing non-linear')
+            start = time.time()
+            if nonlinear_init(&self.pr, &self.ba, &self.th,
+                              &self.pt, &self.pm, &self.nl) == _FAILURE_:
+                self.struct_cleanup()
+                raise CosmoComputationError(self.nl.error_message)
+            end = time.time()
+            print('nonlinear took:',end-start)
+
+            index_z_r = 0
+            print('n_arraySZ ',self.tsz.n_arraySZ)
+            print('ndimSZ ',self.tsz.ndimSZ)
+            for index_z in range(self.tsz.n_arraySZ):
+              for index_r in range(self.tsz.ndimSZ):
+                    self.tsz.array_redshift[index_z] = cszfast.cszfast_pk_grid_ln1pz[index_z]
+                    self.tsz.array_pkl_at_z_and_k[index_z_r] = cszfast.cszfast_pk_grid_pkl_flat[index_z_r]
+                    self.tsz.array_lnk[index_r] = cszfast.cszfast_pk_grid_lnk[index_r]
+                    index_z_r += 1
+
+
+            print('computing non-linear-pt')
+            start = time.time()
+            if nonlinear_pt_init(&self.pr, &self.ba, &self.th,
+                              &self.pt, &self.pm, &self.nlpt, &self.nl, &(self.tsz)) == _FAILURE_:
+                self.struct_cleanup()
+                raise CosmoComputationError(self.nlpt.error_message)
+            print('non-linear pt  done')
+            end = time.time()
+            print('nonlinear-pt took:',end-start)
+            print('initializing spectra')
+            start = time.time()
+            if spectra_init(&(self.pr), &(self.ba), &(self.pt),
+                            &(self.pm), &(self.nlpt), &(self.nl), &(self.tr),
+                            &(self.sp)) == _FAILURE_:
+                self.struct_cleanup()
+                raise CosmoComputationError(self.sp.error_message)
+            print('spectra done')
+
           if self.tsz.skip_class_sz:
               # print("skipping class_sz")
               # print("pkmatter:",self.pt.has_pk_matter)
@@ -942,7 +1013,7 @@ cdef class Class:
             recompute = True
 
         if (recompute or force) and self.allocated:
-            if nonlinear_pt_init(&self.pr, &self.ba, &self.th,&self.pt, &self.pm, &self.nlpt) == _FAILURE_:
+            if nonlinear_pt_init(&self.pr, &self.ba, &self.th,&self.pt, &self.pm, &self.nlpt, &self.nl, &self.tsz) == _FAILURE_:
                 self.struct_cleanup()
                 raise CosmoComputationError(self.nlpt.error_message)
             self.ncp.add("nonlinear_pt")
@@ -1460,7 +1531,7 @@ cdef class Class:
           # result = 0
           result = [pk-large_for_logs_matter]
           result.append(-pk_Id2d2+large_for_logs_big)
-          result.append(pk_Id2-large_for_logs_small)
+          result.append(pk_Id2-large_for_logs_big)
           result.append(-pk_IG2+large_for_logs_small)
           result.append(-pk_Id2G2+large_for_logs_big)
           result.append(pk_IG2G2-large_for_logs_big)

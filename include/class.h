@@ -17,6 +17,7 @@
 #include "arrays.h"
 #include "dei_rkck.h"
 #include "parser.h"
+#include "fft_class_pt.h"
 
 /* class modules */
 #include "common.h"
@@ -26,6 +27,8 @@
 #include "perturbations.h"
 #include "primordial.h"
 #include "nonlinear.h"
+#include "nonlinear_pt.h"
+#include "class_sz.h"
 #include "transfer.h"
 #include "spectra.h"
 #include "lensing.h"

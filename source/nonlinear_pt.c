@@ -8,8 +8,12 @@
  *
  */
 
+// #include "class_sz.h"
 #include "nonlinear_pt.h"
 #include "fft_class_pt.h"
+
+
+
 
 int perturb_get_k_list_nl(
     struct precision *ppr,
@@ -288,6 +292,14 @@ int perturb_get_k_list_nl(
         pnlpt->k_max = MAX(pnlpt->k_max, pnlpt->k[pnlpt->k_size - 1]); /* last value, inferred from perturbations structure */
     }
 
+
+    if (pnlpt->use_class_sz_fast_mode){
+
+      printf("resetting karray in get knl.\n");
+
+      exit(0);
+    }
+
     //free(k_max_cmb);
     //free(k_max_cl);
 
@@ -302,8 +314,13 @@ int nonlinear_pt_init(
     struct thermo *pth,
     struct perturbs *ppt,
     struct primordial *ppm,
-    struct nonlinear_pt *pnlpt)
+    struct nonlinear_pt *pnlpt,
+    struct nonlinear * pnl,
+    struct tszspectrum * ptsz
+)
 {
+  printf("starting non-linear pt calculations.\n");
+  printf("fast mode ? %d\n",pnlpt->use_class_sz_fast_mode);
 
     int index_ncdm;
     int index_k;
@@ -475,12 +492,20 @@ int nonlinear_pt_init(
 
         /** - copy list of (k,tau) from perturbation module */
 
+        // printf("index_md_scalars\n");
+        // printf("index_md_scalars = %d\n",ppt->index_md_scalars);
+        // printf("ppt->ic_size = %d\n",ppt->ic_size[ppt->index_md_scalars]);
+        // printf("ppt->tp_size = %d\n",ppt->tp_size[ppt->index_md_scalars]);
+
         pnlpt->index_md_scalars = ppt->index_md_scalars;
         pnlpt->ic_size = ppt->ic_size[ppt->index_md_scalars];
         pnlpt->tp_size = ppt->tp_size[ppt->index_md_scalars];
 
         if (ppt->has_cls == _TRUE_ && pnlpt->fast_output == _TRUE_)
         {
+
+        if (pnlpt->nonlinear_pt_verbose > 0)
+            printf("Running perturb_get_k_list_nl(.\n");
 
             class_call(perturb_get_k_list_nl(ppr,
                                              pba,
@@ -493,12 +518,32 @@ int nonlinear_pt_init(
         else
         {
 
+        // if (pnlpt->nonlinear_pt_verbose > 0)
+        //     printf("Allocating k-vector.\n");
+
+            if (pnlpt->use_class_sz_fast_mode){
+              // printf("resetting karray in nonlinear pt.\n");
+              pnlpt->k_size = ptsz->ndimSZ;
+              class_alloc(pnlpt->k, pnlpt->k_size * sizeof(double), pnlpt->error_message);
+              for (index_k = 0; index_k < pnlpt->k_size; index_k++){
+                  pnlpt->k[index_k] = exp(ptsz->array_lnk[index_k]);
+                  // printf("karray %d/%d = %.5e\n",index_k,pnlpt->k_size,pnlpt->k[index_k]);
+                  if (index_k == 0)
+                    pnlpt->k[index_k] *= 1.0000001;
+                  if (index_k == ptsz->ndimSZ-1)
+                    pnlpt->k[index_k] *= 0.9999999;
+                }
+              // exit(0);
+            }
+            else{
+
             pnlpt->k_size = ppt->k_size[ppt->index_md_scalars];
             class_alloc(pnlpt->k, pnlpt->k_size * sizeof(double), pnlpt->error_message);
             for (index_k = 0; index_k < pnlpt->k_size; index_k++)
             {
                 pnlpt->k[index_k] = ppt->k[ppt->index_md_scalars][index_k];
             }
+          }
         }
 
         pnlpt->ln_k_size = pnlpt->k_size;
@@ -697,6 +742,7 @@ int nonlinear_pt_init(
         }
 
         //GC: this above remains the same...
+  printf("all arrays have been allocated\n");//,pnlpt->use_class_sz_fast_mode);
 
         /** Inputing the PT matrices */
 
@@ -799,6 +845,8 @@ int nonlinear_pt_init(
             SWITCH_index = 1;
 
         }
+
+
 
         //printf("%d\n",SWITCH_index); //GC - SWITCH!
 
@@ -2834,6 +2882,10 @@ int nonlinear_pt_init(
 
         //GC!
 
+
+        // printf("starting the real stuff\n");//,pnlpt->use_class_sz_fast_mode);
+
+
         //GC - SWITCH -> here I keep... Everything that allocates stuff I keep...
 
         int index_md;
@@ -2847,8 +2899,11 @@ int nonlinear_pt_init(
 
         //int start2=clock();
         /*Begin of new part for nonlinear_pt_pk_l*/
-        if (ppt->has_cls == _TRUE_ && pnlpt->fast_output == _TRUE_)
+        if (ppt->has_cls == _TRUE_ && pnlpt->fast_output == _TRUE_ && pnlpt->use_class_sz_fast_mode == 0)
         {
+
+          // printf("if you see this in fast mode, something is wrong.\n");//,pnlpt->use_class_sz_fast_mode);
+
             if (pnlpt->cb == _TRUE_)
             {
                 class_alloc(pnlpt->dd_sources_tp_delta_cb,
@@ -2951,7 +3006,9 @@ int nonlinear_pt_init(
             }
             /*End cb*/
         }
-
+        else if (pnlpt->use_class_sz_fast_mode){
+          printf("we have skipped a block (source interp) cause we use fastmode.\n");
+        }
         //GC -> this part above remains the same!!! Now the real thing begins...
 
         /*End of new part for nonlinear_pt_pk_l*/
@@ -2995,18 +3052,25 @@ int nonlinear_pt_init(
         for (index_tau = pnlpt->tau_size - 1; index_tau >= 0; index_tau--)
         {
 
+          // printf("looping over tau now at %d.\n",index_tau);
+
             /* get P_L(k) at this time */
 
-            class_call(nonlinear_pt_pk_l(pba, ppt, ppm, pnlpt, index_tau, pk_l, lnk_l, lnpk_l, ddlnpk_l), //GC!
+            class_call(nonlinear_pt_pk_l(pba, ppt, ppm, pnlpt, pnl, ptsz, index_tau, pk_l, lnk_l, lnpk_l, ddlnpk_l), //GC!
                                                                                                           //class_call(nonlinear_pt_pk_l(pba,ppt,ppm,pnlpt,index_tau,pk_l,lnk_l,lnpk_l,ddlnpk_l,tk_l,lntk_l,ddlntk_l),
                                                                                                           //class_call(nonlinear_pt_pk_l(pba,ppt,ppm,pnlpt,index_tau,pk_l,lnk_l,lnpk_l,ddlnpk_l,pPRIMk_l,lnpPRIMk_l,ddlnpPRIMk_l),
                        pnlpt->error_message,
                        pnlpt->error_message);
 
+          // printf("nonlinear_pt_pk_l at %d done.\n",index_tau);
+
+
             /* get P_L(k,tau) lnP_L(k,tau) and ddP_L(k,tau) */
 
             for (index_k = 0; index_k < pnlpt->k_size; index_k++)
             {
+              // printf("nonlinear_pt_pk_l at %d done got %d %.5e.\n",index_tau,index_k,lnpk_l[index_k]);
+
                 lnpk_l_full[index_tau * pnlpt->k_size + index_k] = lnpk_l[index_k];
                 pk_l_full[index_tau * pnlpt->k_size + index_k] = pk_l[index_k];
                 ddlnpk_l_full[index_tau * pnlpt->k_size + index_k] = ddlnpk_l[index_k];
@@ -3464,6 +3528,8 @@ int nonlinear_pt_init(
                     pnlpt->ln_pk_Id2d2_4[i_z * pnlpt->k_size + index_k] = log(pk_Id2d2_4[index_k]);
 
                     pnlpt->ln_pk_Id2[i_z * pnlpt->k_size + index_k] = log(pk_Id2[index_k]);
+                    // printf("ln_pk_Id2 i_z = %d index_k = %d pk = %.5e %.5e\n",i_z,index_k,pk_nl[index_k],pk_Id2[index_k]);
+                    // exit(0);
                     pnlpt->ln_pk_IG2[i_z * pnlpt->k_size + index_k] = log(pk_IG2[index_k]);
                     pnlpt->ln_pk_Id2G2[i_z * pnlpt->k_size + index_k] = log(pk_Id2G2[index_k]);
                     pnlpt->ln_pk_Id2G2_2[i_z * pnlpt->k_size + index_k] = log(pk_Id2G2_2[index_k]);
@@ -3926,7 +3992,7 @@ class_call(nonlinear_pt_pk_l(pba,ppt,ppm,pnlpt,index_tau,pk_l,lnk_l,lnpk_l,ddlnp
 
         //GC -> now everything should be freed...
 
-        if (ppt->has_cls == _TRUE_ && pnlpt->fast_output == _TRUE_)
+        if (ppt->has_cls == _TRUE_ && pnlpt->fast_output == _TRUE_ && pnlpt->use_class_sz_fast_mode == 0)
         {
             if (pnlpt->cb == _TRUE_)
             {
@@ -4392,6 +4458,8 @@ int nonlinear_pt_pk_l(
     struct perturbs *ppt,
     struct primordial *ppm,
     struct nonlinear_pt *pnlpt,
+    struct nonlinear * pnl,
+    struct tszspectrum * ptsz,
     int index_tau,
     double *pk_l,
     double *lnk,
@@ -4406,6 +4474,17 @@ int nonlinear_pt_pk_l(
     //double *lntk, //GC!
     //double *ddlntk) //GC!
     //{ //GC!
+    // printf("computing pk.\n");
+      double *pvecback;
+      class_alloc(pvecback, pba->bg_size * sizeof(double), pnlpt->error_message);
+      int last_index = 0;
+      class_call(background_at_tau(pba, pnlpt->tau[index_tau], pba->long_info, pba->inter_normal, &last_index, pvecback),
+                 pba->error_message,
+                 pnlpt->error_message);
+
+      double z_at_tau = 1./pvecback[pba->index_bg_a]-1.;
+
+// FILE *fp;
 
     int index_md;
     int index_ic = 0;
@@ -4529,12 +4608,21 @@ int nonlinear_pt_pk_l(
         fclose(fp);
     }
     // Compute linear power from CLASS as usual
-    else
+    else if (ptsz->use_class_sz_fast_mode == 0)
     {
 
         index_md = ppt->index_md_scalars;
 
         class_alloc(primordial_pk, ppm->ic_ic_size[index_md] * sizeof(double), pnlpt->error_message);
+// if (index_tau == 9){
+//   printf("printing pkl to file\n");
+//   char Filepath[_ARGUMENT_LENGTH_MAX_];
+//
+//
+//   sprintf(Filepath,"%s%s%s",ptsz->root,"pkl_original",".txt");
+//   printf("printing pkl_original to file %s\n",Filepath);
+//   fp=fopen(Filepath, "w");
+// }
 
         for (index_k = 0; index_k < pnlpt->k_size; index_k++)
         {
@@ -4621,9 +4709,57 @@ int nonlinear_pt_pk_l(
             // printf("pk_l[index_k] %.3e %lf",lnk[index_k],pk_l[index_k]);
             // exit(0);
             //printf("\n");
+          //   if (index_tau == 9){
+          //   printf("normal class index_tau = %d z  = %.5e index_k = %d k =%.5e pkl = %.5e\n",index_tau,z_at_tau,index_k,pnlpt->k[index_k],pk_l[index_k]);
+          //   fprintf(fp,"%.5e %.5e\n",pnlpt->k[index_k],pk_l[index_k]);
+          //
+          // }
         }
         free(primordial_pk);
+      //   if (index_tau == 9){
+      //   fclose(fp);
+      // }
     }
+    else{
+// if (index_tau == 9){
+//   printf("printing pkl to file\n");
+//   char Filepath[_ARGUMENT_LENGTH_MAX_];
+//   // FILE *fp;
+//
+//   sprintf(Filepath,"%s%s%s",ptsz->root,"pkl_fast",".txt");
+//   printf("printing pkl_fast to file %s\n",Filepath);
+//   fp=fopen(Filepath, "w");
+// }
+      for (index_k = 0; index_k < pnlpt->k_size; index_k++){
+      // printf("computing pk from emulators.\n");
+      lnk[index_k] = log(pnlpt->k[index_k]);
+      // printf("k = %.5e\n",exp(lnk[index_k]));
+      // double *pvecback;
+      // class_alloc(pvecback, pba->bg_size * sizeof(double), pnlpt->error_message);
+      // int last_index = 0;
+      // class_call(background_at_tau(pba, pnlpt->tau[index_tau], pba->long_info, pba->inter_normal, &last_index, pvecback),
+      //            pba->error_message,
+      //            pnlpt->error_message);
+      //
+      // double z_at_tau = 1./pvecback[pba->index_bg_a]-1.;
+      // printf("z = %.5e k =%.5e\n",z_at_tau,exp(lnk[index_k]));
+      // free(pvecback);
+      double pkl = get_pk_lin_at_k_and_z_fast(pnlpt->k[index_k]/pba->h,z_at_tau,pba,ppm,pnl,ptsz)*pow(pba->h,-3.);
+      lnpk[index_k] = log(pkl);
+    //   // printf("got pkl = %.5e\n",pkl);
+    //     if (index_tau == 9){
+    //   printf("class_szfast index_tau = %d z = %.5e index_k = %d k =%.5e pkl = %.5e\n",index_tau,z_at_tau,index_k,pnlpt->k[index_k],pkl);
+    //   fprintf(fp,"%.5e %.5e\n",pnlpt->k[index_k],pkl);
+    //
+    //
+    // }
+    }
+  //   if (index_tau == 9){
+  //   fclose(fp);
+  // }
+    }
+
+    free(pvecback);
 
     class_call(array_spline_table_columns(lnk,
                                           pnlpt->k_size,
@@ -4634,6 +4770,7 @@ int nonlinear_pt_pk_l(
                                           pnlpt->error_message),
                pnlpt->error_message,
                pnlpt->error_message);
+
 
     /*
 
@@ -5072,6 +5209,11 @@ int nonlinear_pt_loop(
     double kmin = 0.00005 * pba->h;
     double kmax = 100. * pba->h;
 
+    if (pnlpt->use_class_sz_fast_mode){
+      kmin = pnlpt->k[0]*1.000001;
+      kmax = pnlpt->k[pnlpt->k_size-1]*0.99999;
+    }
+
     /* If you generate new PT matrices, don't forget to choose kmin and kmax appropriately ! */
 
     //double kmin = pnlpt->k[0];
@@ -5207,6 +5349,10 @@ class_alloc(pk_12,pnlpt->k_size * sizeof(double),pnlpt->error_message);*/
 
         if (kdisc[i_kdisc] >= exp(lnk_l[0]))
         {
+          // printf("kdisc = %.5e mink %.5e maxk = %.5e\n",
+          // kdisc[i_kdisc],
+          // exp(lnk_l[0]),
+          // exp(lnk_l[pnlpt->k_size-1]));
 
             class_call(array_interpolate_spline(lnk_l,
                                                 pnlpt->k_size,
@@ -6399,7 +6545,8 @@ class_alloc(pk_12,pnlpt->k_size * sizeof(double),pnlpt->error_message);*/
             pk_CTR[index_k] = exp(lnpk_l[index_k] + 2. * lnk_l[index_k]);
             pk_Tree[index_k] = exp(lnpk_l[index_k]);
         }
-        //  printf("%i %f %f\n",index_k, pk_Tree[index_k],pk_nl[index_k]-5000.);
+         // printf("tree etc %i %.3e %.3e %.3e\n",index_k, pnlpt->k[index_k], pk_Tree[index_k],pk_nl[index_k]-5000.);
+         // if (index_k ==7) exit(0);
         //printf("%.16f %.16f\n",pnlpt->k[index_k],pk_nl_fNL[index_k]-0.*large_for_logs_fNL); //GC!
         //printf("%e %e\n",pnlpt->k[index_k],pk_nl_fNL[index_k]-0.*large_for_logs_fNL); //GC!
         //printf("%.20f %.20f\n",pnlpt->k[index_k],pk_nl_fNL[index_k]-0.*large_for_logs_fNL); //GC!
@@ -6407,6 +6554,8 @@ class_alloc(pk_12,pnlpt->k_size * sizeof(double),pnlpt->error_message);*/
         //printf("%.16e %.16e\n",pnlpt->k[index_k],pk_nl_fNL[index_k]-0.*large_for_logs_fNL); //GC!
         //printf("%.16e %.16e\n",pnlpt->k[index_k],pk_nl_fNL_ortho[index_k]-1.*large_for_logs_fNL); //GC!
     }
+
+    // exit(0);
 
     if (pnlpt->rsd == rsd_yes)
     { //GC: screwed up a bracket. Should end at the line "// end of RSD conditional expression"...
@@ -6916,7 +7065,7 @@ class_alloc(pk_12,pnlpt->k_size * sizeof(double),pnlpt->error_message);*/
                 Ptree_0_vv[index_j] = Pbin[index_j] * (f * f / 5.);
                 //    printf("%le %le\n",kdisc[j],P22[j]);
 
-                //printf("%.16f %.16f %.16f",kdisc[index_j],Tbin[index_j],P12_0_vv[index_j]); //GC!!!
+                printf("P12_0_vv and other things %.16f %.16f %.16f",kdisc[index_j],Tbin[index_j],P12_0_vv[index_j]); //GC!!!
                 //printf("%.16f",f12_0_vv[index_j]); //GC!
                 //printf("%.16f",f22_0_vv[index_j]); //GC!
                 //printf("%.20f %.20f %.20f",kdisc[index_j],Tbin[index_j],P12_0_vv[index_j]);
@@ -7811,7 +7960,7 @@ class_alloc(pk_12,pnlpt->k_size * sizeof(double),pnlpt->error_message);*/
 
         if (irindex == 1)
         {
-            // printf("Computing IR resummed spectra in redshift space...\n");
+            printf("Computing IR resummed spectra in redshift space...\n");
 
             //Computing FFT for wiggly and non-wiggly parts
 
@@ -8289,7 +8438,7 @@ class_alloc(pk_12,pnlpt->k_size * sizeof(double),pnlpt->error_message);*/
                 f12_mu0_dd[index_j] = zdotu_(&Nmaxf, x_transfer, &inc, y_transfer, &inc);                                                                  //GC!
                 P12_mu0_dd_ortho[index_j] = Tnw[index_j] * creal(cpow(kdisc[index_j], 3.) * f12_mu0_dd[index_j] * exp(-pow(kdisc[index_j] / cutoff, 6.))); //GC! This is the NON-WIGGLY part...
                 }
-                //printf("%.16e %.16e %.16e",kdisc[index_j],Tnw[index_j],P12_mu0_dd_ortho[index_j]);
+                // printf("%.16e %.16e %.16e",kdisc[index_j],Tnw[index_j],P12_mu0_dd_ortho[index_j]);
                 //printf("\n"); //GC!
 
                 //GC: ORTHOGONAL -- finish
@@ -9580,7 +9729,7 @@ class_alloc(pk_12,pnlpt->k_size * sizeof(double),pnlpt->error_message);*/
 
                 //        printf("%lf %lf %lf %lf\n",kdisc[index_j],P_CTR_0[index_j],P_CTR_2[index_j],P_CTR_4[index_j]);
 
-                //printf("%.16e %.16e\n",kdisc[index_j],P12_0_dd[index_j]); //GC -> CHECKED...
+                // printf("here trc %.16e %.16e\n",kdisc[index_j],P12_0_dd[index_j]); //GC -> CHECKED...
 
                 P1loop_4_dd[index_j] = P1loop_4_dd[index_j];
                 P1loop_4_vd[index_j] = P1loop_4_vd[index_j];
@@ -12388,12 +12537,12 @@ class_alloc(pk_12,pnlpt->k_size * sizeof(double),pnlpt->error_message);*/
                                                     pnlpt->error_message),
                            pnlpt->error_message,
                            pnlpt->error_message);
-                pk_Id2[index_k] = large_for_logs_small + pk_Id2_out;
+                pk_Id2[index_k] = large_for_logs_big + pk_Id2_out;
             }
 
             else
             {
-                pk_Id2[index_k] = large_for_logs_small;
+                pk_Id2[index_k] = large_for_logs_big;
             }
         }
         free(ddpk_PId2);
@@ -13080,7 +13229,7 @@ class_alloc(pk_12,pnlpt->k_size * sizeof(double),pnlpt->error_message);*/
                 P12_2_b2[index_j] = Tbin[index_j] * //[FACTOR] *
                                     creal(cpow(kdisc[index_j], 3) * f12_2_b2[index_j]);
 
-                //printf("%.16e %.16e %.16e",kdisc[index_j],Tbin[index_j],P12_2_b2[index_j]); //GC!
+                // printf("%.16e %.16e %.16e",kdisc[index_j],Tbin[index_j],P12_2_b2[index_j]); //GC!
                 //printf("\n"); //GC!
 
                 //GC: ORTHOGONAL -- start

@@ -1285,6 +1285,10 @@ int nonlinear_init(
              pnl->error_message,
              pnl->error_message);
 
+  if (pnl->use_class_sz_fast_mode){
+        return _SUCCESS_;
+      }
+
   /** - get the linear power spectrum at each time */
 
   for (index_tau=0; index_tau<pnl->ln_tau_size;index_tau++) {

@@ -23,7 +23,8 @@ struct spectra {
       'primordial' structures) */
 
 
-
+  int use_class_sz_fast_mode;
+  
   int ln_k_size;    /**< number ln(k) values */
   double * ln_k;    /**< list of ln(k) values ln_k[index_k] */
 

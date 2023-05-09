@@ -257,6 +257,11 @@ int primordial_init(
              ppm->error_message,
              ppm->error_message);
 
+if (ppm->use_class_sz_fast_mode){
+  return _SUCCESS_;
+}
+
+
   /** - deal with case of analytic primordial spectra (with amplitudes, tilts, runnings, etc.) */
 
   if (ppm->primordial_spec_type == analytic_Pk) {

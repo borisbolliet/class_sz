@@ -105,6 +105,8 @@ struct perturbs
 
   //@{
 
+  int use_class_sz_fast_mode;
+
   short has_perturbations; /**< do we need to compute perturbations at all ? */
 
   short has_cls; /**< do we need any harmonic space spectrum \f$ C_l \f$ (and hence Bessel functions, transfer functions, ...)? */

@@ -81,7 +81,7 @@ struct primordial {
   /** @name - input parameters initialized by user in input module
       (all other quantities are computed in this module, given these parameters
       and the content of the 'precision' and 'perturbs' structures) */
-
+  int use_class_sz_fast_mode;
   //@{
 
   double k_pivot; /**< pivot scale in \f$ Mpc^{-1} \f$ */

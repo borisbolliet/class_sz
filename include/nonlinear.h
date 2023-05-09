@@ -38,6 +38,7 @@ struct nonlinear {
       'thermo', 'primordial' and 'spectra' structures) */
 
   //@{
+  int use_class_sz_fast_mode;
 
   enum non_linear_method method; /**< method for computing non-linear corrections (none, Halogit, etc.) */
 
@@ -98,7 +99,7 @@ struct nonlinear {
   double * ln_k;   /**< ln_k[index_k] = list of log(k) values */
 
 
- 
+
 
 
 

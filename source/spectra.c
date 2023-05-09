@@ -295,6 +295,10 @@ int spectra_init(
              psp->error_message,
              psp->error_message);
 
+if (psp->use_class_sz_fast_mode){
+  return _SUCCESS_;
+}
+
   /** - deal with \f$ C_l\f$'s, if any */
 
   if (ppt->has_cls == _TRUE_) {

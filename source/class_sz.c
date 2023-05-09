@@ -29,6 +29,7 @@ int class_sz_cosmo_init(  struct background * pba,
 
   int all_comps = ptsz->has_sz_ps
       + ptsz->has_hmf
+      + ptsz->use_class_sz_fast_mode
       + ptsz->has_n5k
       // + ptsz->has_pk_at_z_1h
       + ptsz->has_pk_at_z_1h
@@ -286,7 +287,7 @@ if (ptsz->use_class_sz_fast_mode == 0)
                       /2.))-4.);
 
 
-if (ptsz->need_sigma == 1 || ptsz->has_vrms2){
+// if (ptsz->need_sigma == 1 || ptsz->has_vrms2){
 
 
       double z_min = r8_min(ptsz->z1SZ,ptsz->z1SZ_dndlnM);
@@ -304,7 +305,7 @@ if (ptsz->need_sigma == 1 || ptsz->has_vrms2){
                                         /(ptsz->n_arraySZ-1.); // log(1+z)
 
                                       }
-                                    }
+                                    // }
 
 
 
@@ -2940,11 +2941,11 @@ if (ptsz->sz_verbose>10) printf("-> freeing flag 11.\n");
 
 // if (ptsz->need_hmf + ptsz->has_vrms2 >= 1)
 
-if (ptsz->need_sigma == 1
- || ptsz->has_vrms2){
+// if (ptsz->need_sigma == 1
+ // || ptsz->has_vrms2){
    free(ptsz->array_redshift);
 
- }
+ // }
 
 if (ptsz->need_sigma == 1 ){
    //free(ptsz->array_redshift);
@@ -10771,20 +10772,29 @@ double get_pk_lin_at_k_and_z_fast(double k, double z,
                           struct primordial * ppm,
                           struct nonlinear * pnl,
                           struct tszspectrum * ptsz){
+
+// printf("in get_pk_lin_at_k_and_z_fast.\n");
+
   if ((k*pba->h < exp(ptsz->array_lnk[0])) || (k*pba->h > exp(ptsz->array_lnk[ptsz->ndimSZ-1]))){
-    return 0.;
+    // printf("k out of bound.\n");
+    return 1e-100;
+  }
+  if (z>=5.){
+    // printf("z out of bound.\n");
+    return 1e-100;
   }
 
    double zp = log(1.+z);
    double kp = log(k*pba->h);
+   // printf("ptsz->array_pkl_at_z_and_k = %.5e\n",ptsz->array_pkl_at_z_and_k[0]);
    double pk = pwl_interp_2d(ptsz->n_arraySZ,
-                      ptsz->ndimSZ,
-                      ptsz->array_redshift,
-                      ptsz->array_lnk,
-                      ptsz->array_pkl_at_z_and_k,
-                      1,
-                      &zp,
-                      &kp);
+                             ptsz->ndimSZ,  ///this is fixed in the tabulate_sigma function in class_sztools.
+                             ptsz->array_redshift,
+                             ptsz->array_lnk,
+                             ptsz->array_pkl_at_z_and_k,
+                             1,
+                             &zp,
+                             &kp);
 
 return pk*pow(pba->h,3.);
 }
@@ -10795,7 +10805,7 @@ double get_pk_nonlin_at_k_and_z_fast(double k, double z,
                           struct nonlinear * pnl,
                           struct tszspectrum * ptsz){
   if ((k*pba->h < exp(ptsz->array_lnk[0])) || (k*pba->h > exp(ptsz->array_lnk[ptsz->ndimSZ-1]))){
-    return 0.;
+    return 1e-100;
   }
 
    double zp = log(1.+z);

@@ -6547,6 +6547,11 @@ int input_default_params(
   ptsz->damping_1h_term = 1;
 
   ptsz->use_class_sz_fast_mode = 0;
+  psp->use_class_sz_fast_mode = 0;
+  pnlpt->use_class_sz_fast_mode = 0;
+  ppt->use_class_sz_fast_mode = 0;
+  pnl->use_class_sz_fast_mode = 0;
+  ppm->use_class_sz_fast_mode = 0;
 
   ptsz->N_kSZ2_gal_multipole_grid = 20;
 
