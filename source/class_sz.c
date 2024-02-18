@@ -2808,8 +2808,8 @@ int id;
 
 #pragma omp parallel \
    shared(abort,pba,ptsz,ppm,pfo)\
-   private(tstart,tstop,Pvectsz,Pvecback,index_integrand,id)\
-   num_threads(number_of_threads)
+   private(tstart,tstop,Pvectsz,Pvecback,index_integrand,id)// 
+   //num_threads(number_of_threads)
 	 {
 
 #ifdef _OPENMP
@@ -2849,17 +2849,19 @@ for (index_integrand=0;index_integrand<ptsz->number_of_integrands;index_integran
        //                                Pvectsz),
        //                               ptsz->error_message,
        //                               ptsz->error_message);
-                          compute_sz(pba,
-                                      pfo,
-                                      ppm,
-                                      ppt,
-                                      ptsz,
-                                      Pvecback,
-                                      Pvectsz);
+        class_call_parallel(compute_sz(pba,
+                                       pfo,
+                                       ppm,
+                                       ppt,
+                                       ptsz,
+                                       Pvecback,
+                                       Pvectsz),
+                                       ptsz->error_message,
+                                       ptsz->error_message);
 
 
 
-          }
+          } // end of loop over integrands 
 #ifdef _OPENMP
       tstop = omp_get_wtime();
       if (ptsz->sz_verbose > 0)
