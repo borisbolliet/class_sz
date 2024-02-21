@@ -14,6 +14,7 @@
 
 #include "harmonic.h"
 #include "r8lib.h"
+#include "parallel.h"
 
 /**
  * Anisotropy power spectra \f$ C_l\f$'s for all types, modes and initial conditions.
@@ -679,25 +680,6 @@ int harmonic_cls(
   int index_ct;
   int cl_integrand_num_columns;
 
-  double * cl_integrand; /* array with argument cl_integrand[index_k*cl_integrand_num_columns+1+phr->index_ct] */
-  double * cl_integrand_limber; /* similar array with same columns but different number of lines (less k values) */
-
-  double * transfer_ic1; /* array with argument transfer_ic1[index_tt] */
-  double * transfer_ic2; /* idem */
-  double * primordial_pk;  /* array with argument primordial_pk[index_ic_ic]*/
-
-  /* This code can be optionally compiled with the openmp option for parallel computation.
-     Inside parallel regions, the use of the command "return" is forbidden.
-     For error management, instead of "return _FAILURE_", we will set the variable below
-     to "abort = _TRUE_". This will lead to a "return _FAILURE_" jus after leaving the
-     parallel region. */
-  int abort;
-
-#ifdef _OPENMP
-  /* instrumentation times */
-  double tstart, tstop;
-#endif
-
   /** - allocate pointers to arrays where results will be stored */
 
   class_alloc(phr->l_size,sizeof(int)*phr->md_size,phr->error_message);
@@ -728,6 +710,8 @@ int harmonic_cls(
 
     /** - --> (c) loop over initial conditions */
 
+    class_setup_parallel();
+
     for (index_ic1 = 0; index_ic1 < phr->ic_size[index_md]; index_ic1++) {
       for (index_ic2 = index_ic1; index_ic2 < phr->ic_size[index_md]; index_ic2++) {
         index_ic1_ic2 = index_symmetric_matrix(index_ic1,index_ic2,phr->ic_size[index_md]);
@@ -735,97 +719,75 @@ int harmonic_cls(
         /* non-diagonal coefficients should be computed only if non-zero correlation */
         if (phr->is_non_zero[index_md][index_ic1_ic2] == _TRUE_) {
 
-          /* initialize error management flag */
-          abort = _FALSE_;
+          /** - ---> loop over l values defined in the transfer module.
+              For each l, compute the \f$ C_l\f$'s for all types (TT, TE, ...)
+              by convolving primordial spectra with transfer  functions.
+              This elementary task is assigned to harmonic_compute_cl() */
 
-          /* beginning of parallel region */
+          for (index_l=0; index_l < ptr->l_size[index_md]; index_l++) {
 
-#pragma omp parallel                                                    \
-  shared(ppr,ptr,ppm,index_md,phr,ppt,cl_integrand_num_columns,index_ic1,index_ic2,abort) \
-  private(tstart,cl_integrand,cl_integrand_limber,primordial_pk,transfer_ic1,transfer_ic2,index_l,tstop)
+            class_run_parallel(=,
 
-          {
+              double * cl_integrand; /* array with argument cl_integrand[index_k*cl_integrand_num_columns+1+phr->index_ct] */
+              double * cl_integrand_limber; /* similar array with same columns but different number of lines (less k values) */
+              double * transfer_ic1; /* array with argument transfer_ic1[index_tt] */
+              double * transfer_ic2; /* idem */
+              double * primordial_pk;  /* array with argument primordial_pk[index_ic_ic]*/
 
-#ifdef _OPENMP
-            tstart = omp_get_wtime();
-#endif
 
-            class_alloc_parallel(cl_integrand,
-                                 ptr->q_size*cl_integrand_num_columns*sizeof(double),
-                                 phr->error_message);
+              class_alloc(cl_integrand,
+                          ptr->q_size*cl_integrand_num_columns*sizeof(double),
+                          phr->error_message);
 
-            cl_integrand_limber = NULL;
-            if (ptr->do_lcmb_full_limber == _TRUE_) {
-              class_alloc_parallel(cl_integrand_limber,
-                                   ptr->q_size_limber*cl_integrand_num_columns*sizeof(double),
-                                   phr->error_message);
-            }
+              cl_integrand_limber = NULL;
+              if (ptr->do_lcmb_full_limber == _TRUE_) {
+                class_alloc(cl_integrand_limber,
+                            ptr->q_size_limber*cl_integrand_num_columns*sizeof(double),
+                            phr->error_message);
+              }
 
-            class_alloc_parallel(primordial_pk,
-                                 phr->ic_ic_size[index_md]*sizeof(double),
-                                 phr->error_message);
+              class_alloc(primordial_pk,
+                          phr->ic_ic_size[index_md]*sizeof(double),
+                          phr->error_message);
 
-            class_alloc_parallel(transfer_ic1,
-                                 ptr->tt_size[index_md]*sizeof(double),
-                                 phr->error_message);
+              class_alloc(transfer_ic1,
+                          ptr->tt_size[index_md]*sizeof(double),
+                          phr->error_message);
 
-            class_alloc_parallel(transfer_ic2,
-                                 ptr->tt_size[index_md]*sizeof(double),
-                                 phr->error_message);
+              class_alloc(transfer_ic2,
+                          ptr->tt_size[index_md]*sizeof(double),
+                          phr->error_message);
 
-#pragma omp for schedule (dynamic)
+              class_call(harmonic_compute_cl(ppr,
+                                             pba,
+                                             ppt,
+                                             ptr,
+                                             ppm,
+                                             phr,
+                                             index_md,
+                                             index_ic1,
+                                             index_ic2,
+                                             index_l,
+                                             cl_integrand_num_columns,
+                                             cl_integrand,
+                                             cl_integrand_limber,
+                                             primordial_pk,
+                                             transfer_ic1,
+                                             transfer_ic2),
+                         phr->error_message,
+                         phr->error_message);
 
-            /** - ---> loop over l values defined in the transfer module.
-                For each l, compute the \f$ C_l\f$'s for all types (TT, TE, ...)
-                by convolving primordial spectra with transfer  functions.
-                This elementary task is assigned to harmonic_compute_cl() */
+              free(cl_integrand);
+              if (ptr->do_lcmb_full_limber == _TRUE_) {
+                free(cl_integrand_limber);
+              }
+              free(primordial_pk);
+              free(transfer_ic1);
+              free(transfer_ic2);
 
-            for (index_l=0; index_l < ptr->l_size[index_md]; index_l++) {
-
-#pragma omp flush(abort)
-
-              class_call_parallel(harmonic_compute_cl(ppr,
-                                                      pba,
-                                                      ppt,
-                                                      ptr,
-                                                      ppm,
-                                                      phr,
-                                                      index_md,
-                                                      index_ic1,
-                                                      index_ic2,
-                                                      index_l,
-                                                      cl_integrand_num_columns,
-                                                      cl_integrand,
-                                                      cl_integrand_limber,
-                                                      primordial_pk,
-                                                      transfer_ic1,
-                                                      transfer_ic2),
-                                  phr->error_message,
-                                  phr->error_message);
-
-            } /* end of loop over l */
-
-#ifdef _OPENMP
-            tstop = omp_get_wtime();
-            if (phr->harmonic_verbose > 1)
-              printf("In %s: time spent in parallel region (loop over l's) = %e s for thread %d\n",
-                     __func__,tstop-tstart,omp_get_thread_num());
-#endif
-            free(cl_integrand);
-
-            if (ptr->do_lcmb_full_limber == _TRUE_) {
-              free(cl_integrand_limber);
-            }
-
-            free(primordial_pk);
-
-            free(transfer_ic1);
-
-            free(transfer_ic2);
-
-          } /* end of parallel region */
-
-          if (abort == _TRUE_) return _FAILURE_;
+              return _SUCCESS_;
+            );
+          } /* end of loop over l */
 
         }
         else {
@@ -843,78 +805,7 @@ int harmonic_cls(
       }
     }
 
-// if (ptsz->sz_verbose > 0){
-// printf(">>>> harmonic.c : overwritting cl^pp\n");
-// printf(">>>> harmonic.c : index_md_scalars = %d\n",phr->index_md_scalars);
-// printf(">>>> harmonic.c : ptr->l_size[index_md_scalars] = %d\n",ptr->l_size[phr->index_md_scalars]);
-// printf(">>>> harmonic.c : phr->ic_ic_size[index_md_scalars] = %d\n",phr->ic_ic_size[phr->index_md_scalars]);
-// printf(">>>> harmonic.c : index_ct_pp = %d\n",phr->index_ct_pp);
-// }
-
-// if (phr->overwrite_clpp_with_limber){
-
-//   ptsz->has_lens_lens_hf = 1; // switch on lensing
-//   class_sz_cosmo_init(pba,pth,ppt,pfo,ppm,phr,ple,ptsz,ppr);
-//   class_sz_tabulate_init(pba,pth,ppt,pfo,ppm,phr,ple,ptsz,ppr);
-//   class_sz_integrate_init(pba,pth,ppt,pfo,ppm,phr,ple,ptsz,ppr);
-//   ptsz->has_lens_lens_hf = 0; // switch off lensing
-
-// if (ptsz->sz_verbose > 0)
-//   printf(">>>> harmonic.c : cl^pp has been computed\n");
-
-//   int index_l_limb;
-//   double lnl_limb[ptsz->nlSZ];
-//   double lncl_limb[ptsz->nlSZ];
-//   for (index_l_limb = 0; index_l_limb < ptsz->nlSZ; index_l_limb++){
-//     // printf("(limber) l = %.5e cl = %.5e\n",ptsz->ell[index_l_limb],
-//     //                                        ptsz->cl_lens_lens_hf[index_l_limb]);
-//     lnl_limb[index_l_limb] = log(ptsz->ell[index_l_limb]);
-//     lncl_limb[index_l_limb] = log(ptsz->cl_lens_lens_hf[index_l_limb]);
-//   }
-
-// for (index_l=0; // index_l < 50;
-//      index_l < ptr->l_size[phr->index_md_scalars]; 
-//      index_l++) {
-
-
-//   // double ktest = 10.;
-//   // double ztest = 30.;
-//   // double pk = get_pk_nonlin_at_k_and_z(ktest,ztest,pba,ppm,pfo,ptsz);
-//   // printf("l =  %.3e pk = %.13e\n",l,pk);
-
-//   double l = phr->l[index_l];
-//   double clpp_new; // =  phr->cl[phr->index_md_scalars][(index_l * phr->ic_ic_size[phr->index_md_scalars]) * phr->ct_size + phr->index_ct_pp];
-//   clpp_new = exp(pwl_value_1d(ptsz->nlSZ,lnl_limb,lncl_limb,log(l)))*pow(l*(l+1.)/2.,-2.)*pow(l*(l+1.)/2./_PI_,-1.);
-
-  
-
-//     // printf("index_l = %d l = %.6e cl^pp = %.6e  cl^pp new = %.6e ratio = %.6e\n",
-//     //        index_l,
-//     //        phr->l[index_l],
-//     //        phr->cl[phr->index_md_scalars][(index_l * phr->ic_ic_size[phr->index_md_scalars]) * phr->ct_size + phr->index_ct_pp],
-//     //        clpp_new,
-//     //        clpp_new/phr->cl[phr->index_md_scalars][(index_l * phr->ic_ic_size[phr->index_md_scalars]) * phr->ct_size + phr->index_ct_pp]
-//     //        );
-// //overwrite:
-//   if (l>ppr->l_switch_limber)
-//     phr->cl[phr->index_md_scalars][(index_l * phr->ic_ic_size[phr->index_md_scalars]) * phr->ct_size + phr->index_ct_pp] = clpp_new;
-
-//   }
-
-// // printf(">>>> printing into file to check clpp\n");
-// //         char Filepath[_ARGUMENT_LENGTH_MAX_];
-// //         FILE *fp;
-// //         sprintf(Filepath,"%s%s","/Users/boris/Work/CLASS-SZ/SO-SZ/class_sz/output/","test_cpp.txt");
-// //         fp=fopen(Filepath, "w");
-// //         for (index_l=0; index_l < ptr->l_size[phr->index_md_scalars]; index_l++) {
-// //           fprintf(fp,"%.5e \t %.5e\n",phr->l[index_l],phr->cl[phr->index_md_scalars][(index_l * phr->ic_ic_size[phr->index_md_scalars]) * phr->ct_size + phr->index_ct_pp]);
-// //             }
-// //         fclose(fp);
-
-
-
-// }
-// exit(0);
+    class_finish_parallel();
 
     /** - --> (d) now that for a given mode, all possible \f$ C_l\f$'s have been computed,
         compute second derivative of the array in which they are stored,

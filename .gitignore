@@ -5,10 +5,10 @@ class_sz
 *.prof
 libclass.a
 *out
-python/classy.c
 python/classy_szfast/classy_szfast/.ipynb*
 python/classy_szfast/classy_szfast/__pycache__
 *egg-info
+python/classy.cpp
 *.pyc
 python/build/
 *.dSYM

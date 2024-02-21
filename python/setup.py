@@ -46,8 +46,9 @@ classy_ext = Extension("classy_sz", [os.path.join(classy_folder, "classy.pyx")],
                            libraries=liblist,
                            library_dirs=[root_folder, GCCPATH],
                            extra_link_args=['-lgomp','-L/Users/boris/opt/miniconda3/lib','-lgsl','-lfftw3','-lgslcblas']
-                           ) # BB
-
+                           language="c++",
+                           extra_compile_args=["-std=c++11"]
+                       )
 
 import sys
 classy_ext.cython_directives = {'language_level': "3" if sys.version_info.major>=3 else "2"}
@@ -59,5 +60,4 @@ setup(
     url='http://www.class-code.net',
     cmdclass={'build_ext': build_ext},
     ext_modules=[classy_ext],
-    #data_files=[('bbn', ['../bbn/sBBN.dat'])]
 )

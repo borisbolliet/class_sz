@@ -15,6 +15,7 @@ OUTDIR = $(MDIR)/output
 
 vpath %.c source:tools:main:test
 vpath %.o build
+vpath %.opp build
 vpath .base build
 
 ########################################################
@@ -29,6 +30,7 @@ CC       = /usr/bin/clang
 #CC       = gcc  -Wunused-variable
 #CC       = icc
 #CC       = pgcc
+CPP      = g++ --std=c++11 -fpermissive -Wno-write-strings
 
 # your tool for creating static libraries:
 AR        = ar rv
@@ -51,7 +53,8 @@ OPTFLAG = -O3  #-ffast-math #-arch x86_64
 # your openmp flag (comment for compiling without openmp)
 #OMPFLAG   = -fopenmp
 # on Mac M1
-OMPFLAG   = -Xclang -fopenmp
+# old flag: OMPFLAG   = -Xclang -fopenmp
+OMPFLAG   = -pthread #-fopenmp
 #OMPFLAG   = -mp -mp=nonuma -mp=allcores -g
 #OMPFLAG   = -openmp
 
@@ -68,18 +71,14 @@ HYREC = external/HyRec2020
 RECFAST = external/RecfastCLASS
 HEATING = external/heating
 
-#
-# GSL          = gsl
-# GSL_INC_PATH = /usr/local/include/
-# GSL_LIB_PATH = /usr/local/lib/
-# LIBSGSL = -L$(GSL_LIB_PATH) -l$(GSL)
 
 ########################################################
 ###### IN PRINCIPLE THE REST SHOULD BE LEFT UNCHANGED ##
 ########################################################
 
 # pass current working directory to the code
-CCFLAG += -D__CLASSDIR__='"$(MDIR)"'
+CLASSDIR ?= $(MDIR)
+CCFLAG += -D__CLASSDIR__='"$(CLASSDIR)"'
 
 # where to find include files *.h
 INCLUDES = -I../include -I/usr/local/include/ -I/Users/boris/opt/miniconda3/include/
@@ -110,12 +109,17 @@ EXTERNAL += hyrectools.o helium.o hydrogen.o history.o wrap_hyrec.o energy_injec
 HEADERFILES += $(wildcard ./$(HYREC)/*.h)
 endif
 
+
 %.o:  %.c .base $(HEADERFILES)
 	cd $(WRKDIR);$(CC) $(OPTFLAG) $(OMPFLAG) $(CCFLAG) $(INCLUDES) -c ../$< -o $*.o
 
-TOOLS = growTable.o dei_rkck.o sparse.o evolver_rkck.o  evolver_ndf15.o arrays.o parser.o quadrature.o hyperspherical.o common.o trigonometric_integrals.o r8lib.o class_sz_tools.o class_sz_custom_profiles.o Patterson.o fft.o
+%.opp:  %.c .base $(HEADERFILES)
+	cd $(WRKDIR);$(CPP) $(OPTFLAG) $(OMPFLAG) $(CCFLAG) $(INCLUDES) -c ../$< -o $*.opp
 
-SOURCE = input.o background.o thermodynamics.o perturbations.o primordial.o fourier.o transfer.o harmonic.o lensing.o distortions.o class_sz.o class_sz_clustercounts.o
+TOOLS = growTable.o dei_rkck.o sparse.o evolver_rkck.o  evolver_ndf15.o arrays.opp parser.o quadrature.o hyperspherical.opp common.o trigonometric_integrals.o r8lib.o class_sz_tools.o class_sz_custom_profiles.o Patterson.o fft.o
+
+SOURCE = input.o background.o thermodynamics.o perturbations.opp primordial.opp fourier.o transfer.opp harmonic.opp lensing.opp distortions.o class_sz.o class_sz_clustercounts.o
+
 
 INPUT = input.o
 
@@ -177,57 +181,44 @@ all: class_sz libclass.a classy_sz
 libclass.a: $(TOOLS) $(SOURCE) $(EXTERNAL)
 	$(AR)  $@ $(addprefix build/, $(TOOLS) $(SOURCE) $(EXTERNAL))
 
-class_sz: $(TOOLS) $(SOURCE) $(EXTERNAL) $(OUTPUT) $(CLASS_SZ)
-	#$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -g -o class $(addprefix build/,$(notdir $^)) -lm -L/home/runner/work/SOLikeT/SOLikeT/gsl-2.6/lib -lgsl -lgslcblas
-	 # $(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -g -o class $(addprefix build/,$(notdir $^)) -L/usr/local/lib -L/Users/boris/miniconda/lib -lgsl -lgslcblas -lfftw3 -lm
-	 $(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -g -o class_sz $(addprefix build/,$(notdir $^)) -lgsl -lgslcblas -lfftw3 -lm -L/Users/boris/opt/miniconda3/lib
-
-	 # $(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -g -o class $(addprefix build/,$(notdir $^)) -L/usr/local/lib -L/Users/boris/opt/anaconda3/lib -L/opt/homebrew/lib -lgsl -lgslcblas -lfftw3 -lm
-	 # $(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -g -o class $(addprefix build/,$(notdir $^)) -L/usr/local/lib -lgsl -lgslcblas -lm
+class_sz: $(TOOLS) $(SOURCE) $(EXTERNAL) $(OUTPUT) $(CLASS)
+	$(CPP) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o class_sz $(addprefix build/,$(notdir $^)) -lgsl -lgslcblas -lfftw3 -lm -L/Users/boris/opt/miniconda3/lib
 
 test_loops: $(TOOLS) $(SOURCE) $(EXTERNAL) $(OUTPUT) $(TEST_LOOPS)
-	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o $@ $(addprefix build/,$(notdir $^)) -lm
+	$(CPP) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o $@ $(addprefix build/,$(notdir $^)) -lm
 
 test_loops_omp: $(TOOLS) $(SOURCE) $(EXTERNAL) $(OUTPUT) $(TEST_LOOPS_OMP)
-	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o $@ $(addprefix build/,$(notdir $^)) -lm
+	$(CPP) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o $@ $(addprefix build/,$(notdir $^)) -lm
 
 test_harmonic: $(TOOLS) $(SOURCE) $(EXTERNAL) $(TEST_HARMONIC)
-	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
+	$(CPP) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
 test_transfer: $(TOOLS) $(SOURCE) $(EXTERNAL) $(TEST_TRANSFER)
-	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
+	$(CPP) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
 test_fourier: $(TOOLS) $(SOURCE) $(EXTERNAL) $(TEST_FOURIER)
-	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
+	$(CPP) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
 test_perturbations: $(TOOLS) $(SOURCE) $(EXTERNAL) $(TEST_PERTURBATIONS)
-	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
+	$(CPP) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
 test_thermodynamics: $(TOOLS) $(SOURCE) $(EXTERNAL) $(TEST_THERMODYNAMICS)
-	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
+	$(CPP) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
 test_background: $(TOOLS) $(SOURCE) $(EXTERNAL) $(TEST_BACKGROUND)
-	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
+	$(CPP) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
 test_hyperspherical: $(TOOLS) $(TEST_HYPERSPHERICAL)
 	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o test_hyperspherical $(addprefix build/,$(notdir $^)) -lm
-
 
 tar: $(C_ALL) $(C_TEST) $(H_ALL) $(PRE_ALL) $(INI_ALL) $(MISC_FILES) $(HYREC) $(PYTHON_FILES)
 	tar czvf class_sz.tar.gz $(C_ALL) $(H_ALL) $(PRE_ALL) $(INI_ALL) $(MISC_FILES) $(HYREC) $(PYTHON_FILES)
 
 classy_sz: libclass.a python/classy.pyx python/cclassy.pxd
-ifdef OMPFLAG
-	cp python/setup.py python/autosetup.py
-else
-	grep -v "lgomp" python/setup.py > python/autosetup.py
-endif
-	cd python; export CC=$(CC); $(PYTHON) autosetup.py install || $(PYTHON) autosetup.py install --user
-	rm python/autosetup.py
+	cd python; export CC=$(CC); $(PYTHON) setup.py install || $(PYTHON) setup.py install --user
 
 clean: .base
 	rm -rf $(WRKDIR);
 	rm -f libclass.a
 	rm -f $(MDIR)/python/classy.c
 	rm -rf $(MDIR)/python/build
-	rm -f python/autosetup.py
