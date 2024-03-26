@@ -91,10 +91,15 @@ M.set({# class_sz parameters:
 'mass_epsrel' : 0.0001,    
 'class_sz_verbose' : 10,
         })
-        
-# M.compute_class_szfast()
-M.compute()
+
+import time
+start_time = time.time()        
+M.compute_class_szfast()
+end_time = time.time()
+elapsed_time = end_time - start_time
+print("Elapsed time:", elapsed_time, "seconds")
+# M.compute()
 cl_galn_lens = M.cl_galn_lens()
 cl_gal_lens = M.cl_kg()
 
-print(cl_gal_lens)
+# print(cl_gal_lens)
